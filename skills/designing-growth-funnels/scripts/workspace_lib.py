@@ -27,6 +27,11 @@ WORKSPACE_FILES = [
     "09_experiment_card.md",
     "10_postmortem_record.md",
     "11_presentation.html",
+    "12_source_registry.jsonl",
+    "13_competitor_map.csv",
+    "14_gap_map.yaml",
+    "15_execution_plan.md",
+    "16_research_log.md",
 ]
 
 ARTIFACT_NAMES = {
@@ -41,6 +46,11 @@ ARTIFACT_NAMES = {
     "09_experiment_card.md": "Experiment card",
     "10_postmortem_record.md": "Postmortem record",
     "11_presentation.html": "Visual presentation",
+    "12_source_registry.jsonl": "Source registry",
+    "13_competitor_map.csv": "Competitor map",
+    "14_gap_map.yaml": "Gap map",
+    "15_execution_plan.md": "Execution plan",
+    "16_research_log.md": "Research log",
 }
 
 INTAKE_FILE = "01_intake_brief.yaml"
@@ -48,6 +58,11 @@ PROOF_FILE = "02_proof_library.csv"
 METRICS_FILE = "03_current_metrics.csv"
 CHANNEL_FILE = "04_channel_context.yaml"
 SEGMENT_FILE = "05_segment_profile.yaml"
+SOURCE_FILE = "12_source_registry.jsonl"
+COMPETITOR_FILE = "13_competitor_map.csv"
+GAP_FILE = "14_gap_map.yaml"
+EXECUTION_PLAN_FILE = "15_execution_plan.md"
+RESEARCH_LOG_FILE = "16_research_log.md"
 
 CSV_HEADERS = {
     PROOF_FILE: [
@@ -69,6 +84,20 @@ CSV_HEADERS = {
         "guardrail",
         "owner",
         "status",
+    ],
+    COMPETITOR_FILE: [
+        "competitor",
+        "domain",
+        "positioning",
+        "pricing",
+        "primary_cta",
+        "onboarding_pattern",
+        "proof",
+        "first_value_path",
+        "observed_weaknesses",
+        "source",
+        "confidence",
+        "notes",
     ],
 }
 
@@ -208,6 +237,58 @@ def append_csv_rows(path: Path, headers: list[str], rows: list[dict[str, str]]) 
     return added
 
 
+def read_jsonl_rows(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    rows: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(row, dict) and any(present(value) for value in row.values()):
+            rows.append(row)
+    return rows
+
+
+def write_jsonl_rows(path: Path, rows: list[dict[str, Any]]) -> None:
+    lines = [json.dumps(row, ensure_ascii=False, sort_keys=True) for row in rows]
+    path.write_text("\n".join(lines).rstrip() + ("\n" if lines else ""), encoding="utf-8")
+
+
+def append_jsonl_rows(path: Path, rows: list[dict[str, Any]]) -> int:
+    existing = read_jsonl_rows(path)
+    signatures = {jsonl_signature(row) for row in existing}
+    added = 0
+    for row in rows:
+        normalized = {
+            str(key): value.strip() if isinstance(value, str) else value
+            for key, value in row.items()
+        }
+        if not any(present(value) for value in normalized.values()):
+            continue
+        signature = jsonl_signature(normalized)
+        if signature in signatures:
+            continue
+        existing.append(normalized)
+        signatures.add(signature)
+        added += 1
+    write_jsonl_rows(path, existing)
+    return added
+
+
+def jsonl_signature(row: dict[str, Any]) -> str:
+    url = str(row.get("url", "")).strip().lower()
+    if url:
+        return f"url:{url}"
+    source_id = str(row.get("source_id", "")).strip().lower()
+    if source_id:
+        return f"source_id:{source_id}"
+    return json.dumps(row, sort_keys=True)
+
+
 def ensure_workspace(
     workspace: Path, project_name: str | None = None, output_language: str | None = None
 ) -> None:
@@ -279,9 +360,12 @@ def load_workspace(workspace: Path) -> dict[str, Any]:
         "intake": read_flat_yaml(workspace / INTAKE_FILE),
         "channel": read_flat_yaml(workspace / CHANNEL_FILE),
         "segment": read_flat_yaml(workspace / SEGMENT_FILE),
+        "gap": read_flat_yaml(workspace / GAP_FILE),
         "proof_rows": read_csv_rows(workspace / PROOF_FILE),
         "metric_rows": read_csv_rows(workspace / METRICS_FILE),
         "tracking_rows": read_csv_rows(workspace / "08_tracking_plan.csv"),
+        "source_rows": read_jsonl_rows(workspace / SOURCE_FILE),
+        "competitor_rows": read_csv_rows(workspace / COMPETITOR_FILE),
     }
 
 
@@ -295,6 +379,31 @@ def no_proof_flag(data: dict[str, Any]) -> bool:
 
 def proof_gate_satisfied(data: dict[str, Any]) -> bool:
     return has_proof(data) or no_proof_flag(data)
+
+
+def source_count(data: dict[str, Any]) -> int:
+    return len(data.get("source_rows", []))
+
+
+def competitor_count(data: dict[str, Any]) -> int:
+    rows = data.get("competitor_rows", [])
+    identities = {
+        str(row.get("competitor") or row.get("domain") or "").strip().lower()
+        for row in rows
+        if present(row.get("competitor")) or present(row.get("domain"))
+    }
+    return len(identities)
+
+
+def competitor_field_present(data: dict[str, Any], field: str) -> bool:
+    return any(present(row.get(field)) for row in data.get("competitor_rows", []))
+
+
+def source_type_present(data: dict[str, Any], *terms: str) -> bool:
+    haystack = " ".join(
+        " ".join(str(value) for value in row.values()) for row in data.get("source_rows", [])
+    ).lower()
+    return any(term.lower() in haystack for term in terms)
 
 
 def critical_missing_fields(data: dict[str, Any]) -> list[str]:
@@ -386,6 +495,62 @@ def qualification_score(data: dict[str, Any]) -> int:
     return min(score, 100)
 
 
+def evidence_gaps(data: dict[str, Any]) -> list[str]:
+    gaps: list[str] = []
+    sources = source_count(data)
+    competitors = competitor_count(data)
+    if sources == 0:
+        gaps.append("source registry has no current sources")
+    if competitors == 0:
+        gaps.append("competitor map has no competitors")
+    elif competitors < 3:
+        gaps.append("competitor map has fewer than 3 competitors")
+    if competitors and not competitor_field_present(data, "pricing"):
+        gaps.append("competitor pricing evidence is missing")
+    if competitors and not competitor_field_present(data, "positioning"):
+        gaps.append("competitor positioning evidence is missing")
+    if competitors and not competitor_field_present(data, "onboarding_pattern"):
+        gaps.append("competitor onboarding evidence is missing")
+    if not has_proof(data) and not source_type_present(
+        data, "case", "review", "testimonial", "proof", "evidence"
+    ):
+        gaps.append("external proof or review evidence is missing")
+    return gaps
+
+
+def research_readiness_score(data: dict[str, Any]) -> int:
+    score = 0
+    sources = source_count(data)
+    competitors = competitor_count(data)
+    if sources >= 3:
+        score += 25
+    elif sources:
+        score += 15
+    if competitors >= 3:
+        score += 25
+    elif competitors:
+        score += 12
+    if competitor_field_present(data, "pricing") or present(data["intake"].get("pricing")):
+        score += 15
+    if competitor_field_present(data, "positioning") or competitor_field_present(
+        data, "primary_cta"
+    ):
+        score += 15
+    if competitor_field_present(data, "onboarding_pattern") or competitor_field_present(
+        data, "first_value_path"
+    ):
+        score += 10
+    if has_proof(data) or source_type_present(data, "case", "review", "testimonial", "proof"):
+        score += 10
+    if sources == 0:
+        score = min(score, 60)
+    if competitors == 0:
+        score = min(score, 50)
+    elif competitors < 3:
+        score = min(score, 70)
+    return min(score, 100)
+
+
 def decision_from_score(score: int) -> str:
     if score >= 70:
         return "Go to funnel build"
@@ -416,11 +581,27 @@ def localized_missing_field(field: str, language: str) -> str:
     }.get(field, field)
 
 
+def localized_evidence_gap(gap: str, language: str) -> str:
+    if normalize_language(language).lower() != "russian":
+        return gap
+    return {
+        "source registry has no current sources": "в source registry нет текущих источников",
+        "competitor map has no competitors": "в competitor map нет конкурентов",
+        "competitor map has fewer than 3 competitors": "в competitor map меньше 3 конкурентов",
+        "competitor pricing evidence is missing": "не хватает evidence по pricing конкурентов",
+        "competitor positioning evidence is missing": "не хватает evidence по positioning конкурентов",
+        "competitor onboarding evidence is missing": "не хватает evidence по onboarding конкурентов",
+        "external proof or review evidence is missing": "не хватает внешних proof/review evidence",
+    }.get(gap, gap)
+
+
 def yaml_status(data: dict[str, Any], filename: str, required: list[str]) -> str:
     if filename == INTAKE_FILE:
         values = data["intake"]
     elif filename == CHANNEL_FILE:
         values = data["channel"]
+    elif filename == GAP_FILE:
+        values = data["gap"]
     else:
         values = data["segment"]
     meaningful = [value for key, value in values.items() if key != "project_name" and present(value)]
@@ -471,6 +652,16 @@ def artifact_statuses(data: dict[str, Any]) -> dict[str, str]:
         statuses["08_tracking_plan.csv"] = "draft" if data["tracking_rows"] else "empty"
     presentation_exists = (workspace / "11_presentation.html").exists()
     statuses["11_presentation.html"] = "draft" if presentation_exists else "empty"
+    statuses[SOURCE_FILE] = "ready" if data["source_rows"] else "empty"
+    if competitor_count(data) >= 3:
+        statuses[COMPETITOR_FILE] = "ready"
+    elif competitor_count(data) > 0:
+        statuses[COMPETITOR_FILE] = "partial"
+    else:
+        statuses[COMPETITOR_FILE] = "empty"
+    statuses[GAP_FILE] = yaml_status(data, GAP_FILE, ["evidence_gaps"])
+    statuses[EXECUTION_PLAN_FILE] = markdown_status(workspace / EXECUTION_PLAN_FILE)
+    statuses[RESEARCH_LOG_FILE] = markdown_status(workspace / RESEARCH_LOG_FILE)
     return statuses
 
 
@@ -542,6 +733,18 @@ def next_best_input(data: dict[str, Any]) -> list[str]:
             "За сколько минут реально показать первую осмысленную ценность?"
             if ru
             else "How many minutes should first meaningful value realistically take?"
+        )
+    if len(questions) < 3 and source_count(data) == 0:
+        questions.append(
+            "Какие текущие источники стоит внести: сайт, pricing, docs, отзывы или кейсы?"
+            if ru
+            else "Which current sources should be added: site, pricing, docs, reviews, or cases?"
+        )
+    if len(questions) < 3 and competitor_count(data) < 3:
+        questions.append(
+            "Каких 3-7 конкурентов нужно сравнить по pricing, CTA и onboarding?"
+            if ru
+            else "Which 3-7 competitors should be compared on pricing, CTA, and onboarding?"
         )
     return questions[:3]
 
@@ -616,10 +819,14 @@ def build_summary(workspace: Path) -> dict[str, Any]:
         "workspace": str(workspace),
         "completeness_score": completeness,
         "qualification_score": qualification,
+        "research_readiness_score": research_readiness_score(data),
         "decision": decision_from_score(qualification),
         "output_language": output_language(data),
         "minimum_gate_satisfied": minimum_gate_satisfied(data),
         "critical_missing_fields": critical_missing_fields(data),
+        "evidence_gaps": evidence_gaps(data),
+        "source_count": source_count(data),
+        "competitor_count": competitor_count(data),
         "contradictions": contradictions(data),
         "artifact_status": artifact_statuses(data),
         "next_best_input": next_best_input(data),
@@ -640,6 +847,9 @@ def write_status(workspace: Path, summary: dict[str, Any]) -> None:
         else f"- Output language: {summary.get('output_language', 'English')}",
         f"- Completeness score: {summary['completeness_score']}/100",
         f"- Qualification score: {summary['qualification_score']}/100",
+        f"- Research readiness score: {summary['research_readiness_score']}/100",
+        f"- Source count: {summary['source_count']}",
+        f"- Competitor count: {summary['competitor_count']}",
         f"- Решение: {localized_decision(str(summary['decision']), language)}"
         if ru
         else f"- Decision: {summary['decision']}",
@@ -660,6 +870,14 @@ def write_status(workspace: Path, summary: dict[str, Any]) -> None:
         status_lines.extend(
             f"- {localized_missing_field(str(field), language)}"
             for field in summary["critical_missing_fields"]
+        )
+    else:
+        status_lines.append("- Нет" if ru else "- None")
+
+    status_lines.extend(["", "## Evidence Gaps" if not ru else "## Пробелы evidence", ""])
+    if summary["evidence_gaps"]:
+        status_lines.extend(
+            f"- {localized_evidence_gap(str(item), language)}" for item in summary["evidence_gaps"]
         )
     else:
         status_lines.append("- Нет" if ru else "- None")

@@ -5,8 +5,10 @@
       "input": "",
       "expected": [
         "all workspace files are created",
+        "source registry, competitor map, gap map, execution plan, and research log are created",
         "11_presentation.html exists as a visual placeholder",
         "completeness_score is low",
+        "research_readiness_score is present",
         "critical_missing_fields includes offer, persona, target KPI, channel, proof",
         "next_best_input has no more than 3 questions"
       ]
@@ -45,6 +47,7 @@
         "selected skeleton is trial_to_value",
         "screen specs are draft",
         "tracking plan includes First Value Reached",
+        "final pack includes research evidence, competitor map, gap map, and execution plan documents",
         "presentation HTML summarizes scores, routing, and screen stages"
       ]
     }

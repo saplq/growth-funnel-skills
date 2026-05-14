@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 
 from workspace_lib import (
+    GAP_FILE,
     SEGMENT_FILE,
     append_csv_rows,
     critical_missing_fields,
@@ -19,6 +20,7 @@ from workspace_lib import (
     is_russian,
     load_workspace,
     localized_decision,
+    localized_evidence_gap,
     localized_missing_field,
     minimum_gate_satisfied,
     output_language,
@@ -544,6 +546,274 @@ Due date:
 """
 
 
+def md_cell(value: object) -> str:
+    return str(value or "").replace("|", "/").replace("\n", " ").strip()
+
+
+def source_registry_markdown(data: dict, summary: dict) -> str:
+    language = output_language(data)
+    ru = language.lower() == "russian"
+    title = "Research и evidence summary" if ru else "Research and Evidence Summary"
+    lines = [
+        f"# {title}",
+        "",
+        f"- {'Research readiness' if not ru else 'Research readiness'}: {summary['research_readiness_score']}/100",
+        f"- {'Источников' if ru else 'Sources'}: {summary['source_count']}",
+        f"- {'Конкурентов' if ru else 'Competitors'}: {summary['competitor_count']}",
+        "",
+        "## Evidence gaps" if not ru else "## Пробелы evidence",
+        "",
+    ]
+    gaps = summary["evidence_gaps"] or []
+    if gaps:
+        lines.extend(f"- {localized_evidence_gap(str(gap), language)}" for gap in gaps)
+    else:
+        lines.append("- Нет" if ru else "- None")
+    lines.extend(["", "## Sources" if not ru else "## Источники", ""])
+    if not data["source_rows"]:
+        lines.append(
+            "Источники пока не добавлены. Агент может собрать их внешними инструментами и затем внести через ingest."
+            if ru
+            else "No sources have been added yet. The agent can collect them with external tools, then ingest them here."
+        )
+        return "\n".join(lines) + "\n"
+    lines.extend(
+        [
+            "| Type | Title | Domain | URL | Confidence | Claim |",
+            "| --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    for row in data["source_rows"]:
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    md_cell(row.get("type")),
+                    md_cell(row.get("title")),
+                    md_cell(row.get("domain")),
+                    md_cell(row.get("url")),
+                    md_cell(row.get("confidence")),
+                    md_cell(row.get("linked_claim")),
+                ]
+            )
+            + " |"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def competitor_map_markdown(data: dict) -> str:
+    language = output_language(data)
+    ru = language.lower() == "russian"
+    title = "Карта конкурентов" if ru else "Competitor Map"
+    lines = [f"# {title}", ""]
+    if not data["competitor_rows"]:
+        lines.append(
+            "Конкуренты пока не добавлены. Для v1 достаточно 3-7 конкурентов с pricing, positioning, CTA и onboarding evidence."
+            if ru
+            else "No competitors have been added yet. For v1, add 3-7 competitors with pricing, positioning, CTA, and onboarding evidence."
+        )
+        return "\n".join(lines) + "\n"
+    if ru:
+        lines.extend(
+            [
+                "| Конкурент | Domain | Positioning | Pricing | CTA | Onboarding | Proof | Source |",
+                "| --- | --- | --- | --- | --- | --- | --- | --- |",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                "| Competitor | Domain | Positioning | Pricing | CTA | Onboarding | Proof | Source |",
+                "| --- | --- | --- | --- | --- | --- | --- | --- |",
+            ]
+        )
+    for row in data["competitor_rows"]:
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    md_cell(row.get("competitor")),
+                    md_cell(row.get("domain")),
+                    md_cell(row.get("positioning")),
+                    md_cell(row.get("pricing")),
+                    md_cell(row.get("primary_cta")),
+                    md_cell(row.get("onboarding_pattern")),
+                    md_cell(row.get("proof")),
+                    md_cell(row.get("source")),
+                ]
+            )
+            + " |"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def gap_map_markdown(data: dict, summary: dict) -> str:
+    language = output_language(data)
+    ru = language.lower() == "russian"
+    title = "Gap map" if not ru else "Карта пробелов"
+    lines = [
+        f"# {title}",
+        "",
+        f"- {'Known sources' if not ru else 'Известные источники'}: {summary['source_count']}",
+        f"- {'Known competitors' if not ru else 'Известные конкуренты'}: {summary['competitor_count']}",
+        "",
+        "## Evidence gaps" if not ru else "## Пробелы evidence",
+        "",
+    ]
+    if summary["evidence_gaps"]:
+        lines.extend(
+            f"- {localized_evidence_gap(str(gap), language)}" for gap in summary["evidence_gaps"]
+        )
+    else:
+        lines.append("- None" if not ru else "- Нет")
+    lines.extend(["", "## Next collection" if not ru else "## Следующий сбор данных", ""])
+    if summary["source_count"] == 0:
+        lines.append(
+            "- Add official site, pricing, docs, review, and case-study sources."
+            if not ru
+            else "- Добавить официальный сайт, pricing, docs, reviews и case-study sources."
+        )
+    if summary["competitor_count"] < 3:
+        lines.append(
+            "- Add 3-7 named competitors with source URLs."
+            if not ru
+            else "- Добавить 3-7 конкурентов с source URLs."
+        )
+    if not summary["evidence_gaps"]:
+        lines.append(
+            "- Evidence coverage is enough for a first funnel recommendation pass."
+            if not ru
+            else "- Evidence coverage достаточно для первого recommendation pass."
+        )
+    return "\n".join(lines) + "\n"
+
+
+def execution_plan_markdown(data: dict, summary: dict, rendered: bool) -> str:
+    language = output_language(data)
+    ru = language.lower() == "russian"
+    title = "Execution Plan"
+    next_items = summary["next_best_input"] or (
+        ["Review generated artifacts and prepare the next experiment."]
+        if not ru
+        else ["Проверить сгенерированные артефакты и подготовить следующий эксперимент."]
+    )
+    auto_collect: list[str] = []
+    if summary["source_count"] == 0:
+        auto_collect.append(
+            "Collect current official/product/pricing/review sources and ingest URLs."
+            if not ru
+            else "Собрать текущие official/product/pricing/review sources и внести URLs."
+        )
+    if summary["competitor_count"] < 3:
+        auto_collect.append(
+            "Collect 3-7 competitor pages with pricing, CTA, onboarding, and proof notes."
+            if not ru
+            else "Собрать 3-7 competitor pages с pricing, CTA, onboarding и proof notes."
+        )
+    if not auto_collect:
+        auto_collect.append(
+            "No automatic collection blocker remains for v1."
+            if not ru
+            else "Для v1 не осталось блокирующего automatic collection."
+        )
+    lines = [
+        "---",
+        "artifact: execution_plan",
+        "status: draft",
+        "---",
+        "",
+        f"# {title}",
+        "",
+        "## Auto-collect" if not ru else "## Собрать автоматически",
+        "",
+    ]
+    lines.extend(f"- {item}" for item in auto_collect)
+    lines.extend(["", "## Ask user" if not ru else "## Спросить у пользователя", ""])
+    lines.extend(f"- {item}" for item in next_items)
+    lines.extend(["", "## Draft" if not ru else "## Собрать draft", ""])
+    lines.append(
+        "- Use the current funnel artifacts as draft recommendations."
+        if rendered and not ru
+        else "- Использовать текущие funnel artifacts как draft-рекомендации."
+        if rendered
+        else "- Keep recommendations blocked until the minimum gate is satisfied."
+        if not ru
+        else "- Держать рекомендации заблокированными, пока minimum gate не выполнен."
+    )
+    lines.extend(["", "## Verify" if not ru else "## Проверить", ""])
+    lines.extend(
+        [
+            "- Confirm proof claims against source registry before publishing."
+            if not ru
+            else "- Проверить proof claims по source registry перед публикацией.",
+            "- Confirm tracking events before interpreting experiment outcomes."
+            if not ru
+            else "- Проверить tracking events до интерпретации результатов эксперимента.",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def research_log_markdown(data: dict, summary: dict) -> str:
+    language = output_language(data)
+    ru = language.lower() == "russian"
+    lines = [
+        "---",
+        "artifact: research_log",
+        "status: draft",
+        "---",
+        "",
+        "# Research Log",
+        "",
+        (
+            "This skill made no network calls. It only normalized evidence that was provided by the user, agent, or external tooling."
+            if not ru
+            else "Этот skill не делал network calls. Он только нормализовал evidence, предоставленные пользователем, агентом или внешними инструментами."
+        ),
+        "",
+        f"- Sources: {summary['source_count']}",
+        f"- Competitors: {summary['competitor_count']}",
+        f"- Research readiness: {summary['research_readiness_score']}/100",
+        "",
+        "## Conflicts" if not ru else "## Конфликты",
+        "",
+    ]
+    if summary["contradictions"]:
+        lines.extend(f"- {item}" for item in summary["contradictions"])
+    else:
+        lines.append("- None detected" if not ru else "- Не обнаружены")
+    return "\n".join(lines) + "\n"
+
+
+def write_research_artifacts(
+    workspace: Path, data: dict, summary: dict, rendered: bool
+) -> None:
+    gaps = summary["evidence_gaps"]
+    auto_collect = []
+    if summary["source_count"] == 0:
+        auto_collect.append("collect current source URLs")
+    if summary["competitor_count"] < 3:
+        auto_collect.append("collect 3-7 competitor benchmarks")
+    ask_user = summary["next_best_input"]
+    write_flat_yaml(
+        workspace / GAP_FILE,
+        {
+            "known_sources_count": summary["source_count"],
+            "known_competitors_count": summary["competitor_count"],
+            "evidence_gaps": "; ".join(gaps) if gaps else "none",
+            "auto_collect_next": "; ".join(auto_collect) if auto_collect else "none",
+            "ask_user_next": "; ".join(ask_user) if ask_user else "none",
+        },
+        overwrite=True,
+    )
+    (workspace / "15_execution_plan.md").write_text(
+        execution_plan_markdown(data, summary, rendered), encoding="utf-8"
+    )
+    (workspace / "16_research_log.md").write_text(
+        research_log_markdown(data, summary), encoding="utf-8"
+    )
+
+
 def render_presentation(
     data: dict,
     summary: dict,
@@ -611,7 +881,7 @@ def render_presentation(
     ul {{ margin: 8px 0 0 20px; padding: 0; }}
     li {{ margin: 5px 0; }}
     .hero {{ display: grid; gap: 18px; grid-template-columns: minmax(0, 1.3fr) minmax(260px, .7fr); align-items: stretch; }}
-    .scores {{ display: grid; gap: 12px; grid-template-columns: repeat(2, 1fr); }}
+    .scores {{ display: grid; gap: 12px; grid-template-columns: repeat(3, 1fr); }}
     .score {{ padding: 16px; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfe; }}
     .score strong {{ display: block; font-size: 34px; line-height: 1; margin-bottom: 6px; }}
     .grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }}
@@ -638,6 +908,7 @@ def render_presentation(
       <div class="scores">
         <div class="score"><strong>{summary['completeness_score']}</strong><span>Completeness</span></div>
         <div class="score"><strong>{summary['qualification_score']}</strong><span>Qualification</span></div>
+        <div class="score"><strong>{summary['research_readiness_score']}</strong><span>Research</span></div>
       </div>
     </section>
     <section>
@@ -971,6 +1242,34 @@ def write_final_pack(
             read_clean_markdown(workspace, "10_postmortem_record.md"),
         )
     )
+    doc_specs.append(
+        (
+            "07_research_evidence",
+            "Research и evidence" if ru else "Research and Evidence",
+            source_registry_markdown(data, summary),
+        )
+    )
+    doc_specs.append(
+        (
+            "08_competitor_map",
+            "Карта конкурентов" if ru else "Competitor Map",
+            competitor_map_markdown(data),
+        )
+    )
+    doc_specs.append(
+        (
+            "09_gap_map",
+            "Карта пробелов" if ru else "Gap Map",
+            gap_map_markdown(data, summary),
+        )
+    )
+    doc_specs.append(
+        (
+            "10_execution_plan",
+            "Execution Plan",
+            read_clean_markdown(workspace, "15_execution_plan.md"),
+        )
+    )
 
     docs = [(f"{slug}.md", f"{slug}.html", title) for slug, title, _markdown in doc_specs]
     index_body = index_markdown(language, docs)
@@ -1037,6 +1336,9 @@ def main() -> int:
                 encoding="utf-8",
             )
             summary = validate_and_write_status(workspace)
+            write_research_artifacts(workspace, data, summary, rendered=False)
+            data = load_workspace(workspace)
+            summary = validate_and_write_status(workspace)
             (workspace / "11_presentation.html").write_text(
                 render_presentation(data, summary, rendered=False), encoding="utf-8"
             )
@@ -1084,6 +1386,9 @@ def main() -> int:
         (workspace / "10_postmortem_record.md").write_text(
             render_postmortem(language), encoding="utf-8"
         )
+        summary = validate_and_write_status(workspace)
+        write_research_artifacts(workspace, data, summary, rendered=True)
+        data = load_workspace(workspace)
         summary = validate_and_write_status(workspace)
         (workspace / "11_presentation.html").write_text(
             render_presentation(data, summary, rendered=True, skeleton=skeleton, fallback=fallback, rationale=rationale),

@@ -35,12 +35,14 @@ def main() -> int:
     else:
         print(f"Completeness: {summary['completeness_score']}/100")
         print(f"Qualification: {summary['qualification_score']}/100")
+        print(f"Research readiness: {summary['research_readiness_score']}/100")
         print(f"Decision: {summary['decision']}")
         if summary["critical_missing_fields"]:
             print("Missing: " + ", ".join(summary["critical_missing_fields"]))
+        if summary["evidence_gaps"]:
+            print("Evidence gaps: " + ", ".join(summary["evidence_gaps"]))
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

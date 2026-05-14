@@ -46,6 +46,14 @@ def assert_final_pack(workspace: Path) -> None:
         "05_experiment_card.html",
         "06_postmortem_template.md",
         "06_postmortem_template.html",
+        "07_research_evidence.md",
+        "07_research_evidence.html",
+        "08_competitor_map.md",
+        "08_competitor_map.html",
+        "09_gap_map.md",
+        "09_gap_map.html",
+        "10_execution_plan.md",
+        "10_execution_plan.html",
         "index.html",
     ]
     for filename in expected:
@@ -54,7 +62,7 @@ def assert_final_pack(workspace: Path) -> None:
             raise AssertionError(f"missing final file: {path}")
         if path.stat().st_size == 0:
             raise AssertionError(f"empty final file: {path}")
-    forbidden = {".yaml", ".yml", ".csv"}
+    forbidden = {".yaml", ".yml", ".csv", ".jsonl"}
     for path in final_dir.iterdir():
         if path.suffix in forbidden:
             raise AssertionError(f"raw file leaked into final pack: {path}")
@@ -98,8 +106,18 @@ class WorkspaceScriptsTest(unittest.TestCase):
                 "09_experiment_card.md",
                 "10_postmortem_record.md",
                 "11_presentation.html",
+                "12_source_registry.jsonl",
+                "13_competitor_map.csv",
+                "14_gap_map.yaml",
+                "15_execution_plan.md",
+                "16_research_log.md",
             ]:
                 self.assertTrue((workspace / filename).exists(), filename)
+            self.assertIn("research_readiness_score", summary)
+            self.assertIn("evidence_gaps", summary)
+            self.assertEqual(summary["source_count"], 0)
+            self.assertEqual(summary["competitor_count"], 0)
+            self.assertIn("source registry has no current sources", summary["evidence_gaps"])
 
     def test_partial_notes_update_structured_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -121,6 +139,46 @@ class WorkspaceScriptsTest(unittest.TestCase):
             self.assertIn("icp", result["changed"]["intake"])
             self.assertIn("primary_channel", result["changed"]["channel"])
             self.assertIn("target KPI", result["summary"]["critical_missing_fields"])
+
+    def test_ingests_sources_and_competitor_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "research"
+            run_script("create_workspace.py", "--name", "Research", "--out", str(workspace))
+            result = run_script(
+                "ingest_notes.py",
+                str(workspace),
+                "--input",
+                "-",
+                input_text=(
+                    "Source: Pricing page https://example.com/pricing\n"
+                    "Review evidence: https://reviews.example.com/acme says setup is fast\n"
+                    "Competitor: RivalOne | domain: rivalone.com | pricing: $29/mo | "
+                    "positioning: analytics for SaaS teams | CTA: Start free | "
+                    "onboarding: connect Stripe | source: https://rivalone.com/pricing\n"
+                ),
+            )
+
+            self.assertEqual(result["changed"]["source_rows_added"], 3)
+            self.assertEqual(result["changed"]["competitor_rows_added"], 1)
+            self.assertEqual(result["summary"]["source_count"], 3)
+            self.assertEqual(result["summary"]["competitor_count"], 1)
+            self.assertIn(
+                "competitor map has fewer than 3 competitors",
+                result["summary"]["evidence_gaps"],
+            )
+            source_lines = [
+                json.loads(line)
+                for line in (workspace / "12_source_registry.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
+                if line.strip()
+            ]
+            self.assertEqual(source_lines[0]["domain"], "example.com")
+            competitor_csv = (workspace / "13_competitor_map.csv").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("RivalOne", competitor_csv)
+            self.assertIn("Start free", competitor_csv)
 
     def test_missing_target_kpi_blocks_experiment_card(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -175,6 +233,14 @@ class WorkspaceScriptsTest(unittest.TestCase):
                 encoding="utf-8"
             )
             self.assertIn("First Value Reached", tracking)
+            research = (workspace / "final" / "07_research_evidence.md").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("Research and Evidence Summary", research)
+            execution = (workspace / "final" / "10_execution_plan.md").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("Auto-collect", execution)
 
     def test_conflicting_proof_state_appears_in_status(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -257,6 +323,10 @@ class WorkspaceScriptsTest(unittest.TestCase):
             self.assertIn("| Событие | Этап | Назначение |", final_tracking)
             final_html = (workspace / "final" / "index.html").read_text(encoding="utf-8")
             self.assertIn("<title>Оглавление</title>", final_html)
+            final_research = (workspace / "final" / "07_research_evidence.md").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("Research и evidence summary", final_research)
 
 
 if __name__ == "__main__":

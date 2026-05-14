@@ -2,7 +2,7 @@
 
 Installable Agent Skill for turning rough growth context into a structured funnel workspace.
 
-The skill is `designing-growth-funnels`. It creates the project files, scores what is missing, asks for the next useful input, and renders a clean final pack with one Markdown document and one HTML page per topic.
+The skill is `designing-growth-funnels`. It creates the project files, scores what is missing, stores evidence and competitor research, asks for the next useful input, and renders a clean final pack with one Markdown document and one HTML page per topic.
 
 Repository: `saplq/growth-funnel-skills`
 
@@ -155,6 +155,8 @@ Metric: trial activation 22% last month
 
 The agent should create the workspace, fill structured files, validate completeness, render the final pack, and tell you only what changed plus the next smallest input it needs.
 
+If the agent has web, file, CRM, analytics, or research tools, it should collect the evidence outside the bundled scripts and then ingest the resulting notes, URLs, competitor rows, pricing, positioning, CTA, onboarding, review, and proof snippets into the workspace. The skill itself stays deterministic and offline.
+
 Before the workspace is created, the agent should infer the language of your current conversation. Status files, questions, Markdown outputs, and the HTML presentation should be created in that language from the start unless you ask for a different language.
 
 ## What The Agent Creates
@@ -178,6 +180,11 @@ funnel-workspace/
 ├── 09_experiment_card.md     # hypothesis, KPI, decision rule
 ├── 10_postmortem_record.md   # learning archive template
 ├── 11_presentation.html      # compact workspace overview
+├── 12_source_registry.jsonl   # internal/external source ledger
+├── 13_competitor_map.csv      # competitor pricing, positioning, CTA, onboarding
+├── 14_gap_map.yaml            # evidence gaps and collection needs
+├── 15_execution_plan.md       # auto-collect, ask-user, draft, verify plan
+├── 16_research_log.md         # normalized research pass and conflicts
 └── final/
     ├── index.html
     ├── 00_index.md
@@ -193,10 +200,18 @@ funnel-workspace/
     ├── 05_experiment_card.md
     ├── 05_experiment_card.html
     ├── 06_postmortem_template.md
-    └── 06_postmortem_template.html
+    ├── 06_postmortem_template.html
+    ├── 07_research_evidence.md
+    ├── 07_research_evidence.html
+    ├── 08_competitor_map.md
+    ├── 08_competitor_map.html
+    ├── 09_gap_map.md
+    ├── 09_gap_map.html
+    ├── 10_execution_plan.md
+    └── 10_execution_plan.html
 ```
 
-Use `final/index.html` or read the numbered Markdown files in `final/`. The `final/` folder is intentionally clean: Markdown and plain HTML only, no YAML, CSV, or separate CSS files.
+Use `final/index.html` or read the numbered Markdown files in `final/`. The `final/` folder is intentionally clean: Markdown and plain HTML only, no YAML, CSV, JSONL, or separate CSS files.
 
 ## How Updates Work
 
@@ -215,6 +230,8 @@ Final recommendations stay blocked until the minimum gate is satisfied:
 - target KPI;
 - primary channel;
 - proof assets or an explicit no-proof-yet flag.
+
+Research readiness is advisory in v1. Missing sources or competitor benchmarks appear as `research_readiness_score`, `evidence_gaps`, `source_count`, and `competitor_count` in validation output, but they do not block the existing minimum gate.
 
 ## Language
 
@@ -271,10 +288,10 @@ open ./workspaces/acme-onboarding/final/index.html
 | --- | --- |
 | `create_workspace.py` | Creates every workspace file immediately. |
 | `validate_workspace.py` | Updates `00_status.md` with scores, blockers, and warnings. |
-| `ingest_notes.py` | Moves rough notes into YAML/CSV without deleting existing data. |
-| `render_outputs.py` | Renders the raw artifacts and the clean `final/` pack. |
+| `ingest_notes.py` | Moves rough notes, source URLs, competitor notes, pricing, positioning, CTA, onboarding, reviews, and evidence into YAML/CSV/JSONL without deleting existing data. |
+| `render_outputs.py` | Renders the raw artifacts, gap map, execution plan, and the clean `final/` pack. |
 
-All scripts use only the Python standard library. No network calls. No secrets. No hidden dependencies.
+All scripts use only the Python standard library. No network calls. No secrets. No hidden dependencies. Fresh research should be gathered by the agent or external tooling and then normalized through `ingest_notes.py`.
 
 ## Development
 

@@ -21,6 +21,11 @@ Project: {{project_name}}
 | 09_experiment_card.md | blocked | Target KPI and hypothesis needed |
 | 10_postmortem_record.md | blocked | Experiment not started |
 | 11_presentation.html | draft | Visual placeholder created immediately |
+| 12_source_registry.jsonl | empty | Awaiting current source URLs and evidence |
+| 13_competitor_map.csv | empty | Awaiting competitor benchmarks |
+| 14_gap_map.yaml | empty | Awaiting evidence gap analysis |
+| 15_execution_plan.md | draft | Awaiting generated execution plan |
+| 16_research_log.md | draft | Awaiting research normalization log |
 
 ## Critical Missing Fields
 
