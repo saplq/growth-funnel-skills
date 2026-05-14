@@ -211,7 +211,7 @@ funnel-workspace/
     └── 10_execution_plan.html
 ```
 
-Use `final/index.html` or read the numbered Markdown files in `final/`. The `final/` folder is intentionally clean: Markdown and plain HTML only, no YAML, CSV, JSONL, or separate CSS files.
+Use `final/index.html` for the visual reader flow, or read the numbered Markdown files in `final/` for plain-text review. The `final/` HTML pages include inline styling, sidebar navigation, and next/previous page links. The folder stays self-contained: no YAML, CSV, JSONL, or separate CSS files.
 
 ## How Updates Work
 

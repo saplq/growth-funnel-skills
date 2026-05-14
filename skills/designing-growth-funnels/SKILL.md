@@ -86,7 +86,7 @@ Before the gate is satisfied, create blocked/draft artifacts and ask only for th
 
 Match generated artifact language to the language the user used in chat unless they explicitly ask otherwise. Store this in `01_intake_brief.yaml` as `output_language` at workspace creation time.
 
-Use root workspace files as agent/debug state. Always render a clean user-facing `final/` folder with ordered pairs: one `NN_topic.md` document and one matching `NN_topic.html` page per topic. Do not put YAML, CSV, JSONL, or separate CSS files in `final/`. Keep `11_presentation.html` as a compact workspace overview, but point the user to `final/index.html` for reading.
+Use root workspace files as agent/debug state. Always render a clean user-facing `final/` folder with ordered pairs: one `NN_topic.md` document and one matching `NN_topic.html` page per topic. HTML pages must be visually readable with inline styling, sidebar navigation, and next/previous links. Do not put YAML, CSV, JSONL, or separate CSS files in `final/`. Keep `11_presentation.html` as a compact workspace overview, but point the user to `final/index.html` for reading.
 
 When information arrives gradually, do not dump everything into chat. Update files, revalidate, and reply with a short status: changed files, current scores, blockers, and the next smallest input request.
 

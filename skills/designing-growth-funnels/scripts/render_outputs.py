@@ -961,7 +961,7 @@ def table_to_html(lines: list[str]) -> str:
         return ""
     header = rows[0]
     body = rows[1:]
-    html = ["<table border=\"1\" cellpadding=\"6\" cellspacing=\"0\">", "<thead><tr>"]
+    html = ["<table>", "<thead><tr>"]
     html.extend(f"<th>{escape(cell)}</th>" for cell in header)
     html.append("</tr></thead><tbody>")
     for row in body:
@@ -970,6 +970,234 @@ def table_to_html(lines: list[str]) -> str:
         html.append("</tr>")
     html.append("</tbody></table>")
     return "\n".join(html)
+
+
+def final_pack_css() -> str:
+    return """
+    :root {
+      color-scheme: light;
+      --ink: #202124;
+      --muted: #667085;
+      --soft: #f3f6f8;
+      --paper: #ffffff;
+      --panel: #ffffff;
+      --line: #d7dee5;
+      --accent: #0f766e;
+      --accent-ink: #0b4f49;
+      --warm: #b45309;
+      --shadow: 0 18px 48px rgba(19, 34, 42, .10);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(15, 118, 110, .14), transparent 28rem),
+        linear-gradient(135deg, #f8fbfc 0%, #eef3f6 100%);
+      font-family: ui-serif, Georgia, Cambria, "Times New Roman", serif;
+    }
+    a { color: inherit; }
+    .shell {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+      padding: 28px 18px;
+      background: rgba(255, 255, 255, .84);
+      border-right: 1px solid var(--line);
+      backdrop-filter: blur(16px);
+    }
+    .brand {
+      display: block;
+      margin: 0 0 18px;
+      font-size: 13px;
+      line-height: 1.35;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    .nav-list { display: grid; gap: 7px; }
+    .nav-link {
+      display: block;
+      padding: 10px 12px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      color: #344047;
+      font: 600 14px/1.25 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      text-decoration: none;
+    }
+    .nav-link:hover, .nav-link.active {
+      background: var(--panel);
+      border-color: var(--line);
+      box-shadow: 0 8px 18px rgba(19, 34, 42, .06);
+    }
+    .page {
+      max-width: 1120px;
+      width: 100%;
+      padding: 40px 34px 56px;
+    }
+    .page-hero {
+      margin: 0 0 22px;
+      padding: 30px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: linear-gradient(145deg, rgba(255,255,255,.95), rgba(241,248,249,.96));
+      box-shadow: var(--shadow);
+    }
+    .eyebrow {
+      display: inline-flex;
+      margin: 0 0 12px;
+      color: var(--accent-ink);
+      font: 700 12px/1 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+    h1, h2, h3 { letter-spacing: 0; }
+    .page-hero h1 {
+      margin: 0;
+      max-width: 850px;
+      font-size: clamp(34px, 5vw, 64px);
+      line-height: .98;
+    }
+    .content-card {
+      padding: 28px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255,255,255,.90);
+      box-shadow: 0 10px 28px rgba(19, 34, 42, .07);
+    }
+    .content-card > h1:first-child { display: none; }
+    .content-card h2 {
+      margin: 28px 0 12px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+      font-size: 26px;
+      line-height: 1.1;
+    }
+    .content-card h2:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+    .content-card h3 { margin: 22px 0 8px; font-size: 18px; }
+    .content-card p, .content-card li {
+      font-size: 17px;
+      line-height: 1.62;
+    }
+    .content-card p { color: #3d3a35; }
+    .content-card ul, .content-card ol {
+      display: grid;
+      gap: 9px;
+      margin: 14px 0 22px;
+      padding: 0;
+      list-style: none;
+    }
+    .content-card li {
+      padding: 12px 14px;
+      border: 1px solid #dbe3ea;
+      border-radius: 8px;
+      background: #fbfdfe;
+    }
+    table {
+      width: 100%;
+      margin: 18px 0 26px;
+      border-collapse: collapse;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    th, td {
+      padding: 12px 14px;
+      border-bottom: 1px solid #dbe3ea;
+      vertical-align: top;
+      text-align: left;
+    }
+    th {
+      color: var(--accent-ink);
+      background: #eef6f4;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+    tr:last-child td { border-bottom: 0; }
+    pre {
+      overflow: auto;
+      padding: 16px;
+      border-radius: 8px;
+      background: #202124;
+      color: #f7f1e5;
+    }
+    .page-footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      margin-top: 22px;
+    }
+    .pager {
+      min-width: 0;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
+      color: #2d2922;
+      font: 700 14px/1.25 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      text-decoration: none;
+    }
+    .pager.next {
+      margin-left: auto;
+      color: white;
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+    .index-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 14px;
+      margin-top: 22px;
+    }
+    .index-card {
+      min-height: 150px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255,255,255,.92);
+      box-shadow: 0 10px 24px rgba(19, 34, 42, .06);
+      text-decoration: none;
+    }
+    .index-card span {
+      display: block;
+      margin-bottom: 24px;
+      color: var(--warm);
+      font: 700 12px/1 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .index-card strong {
+      display: block;
+      color: var(--ink);
+      font-size: 24px;
+      line-height: 1.05;
+    }
+    .index-card small {
+      display: block;
+      margin-top: 10px;
+      color: var(--muted);
+      font: 500 13px/1.45 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    @media (max-width: 860px) {
+      .shell { grid-template-columns: 1fr; }
+      .sidebar { position: static; height: auto; padding: 14px; }
+      .nav-list { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+      .page { padding: 22px 14px 36px; }
+      .page-hero, .content-card { padding: 20px; }
+      .page-footer { flex-direction: column; }
+      .pager.next { margin-left: 0; }
+    }
+    """
 
 
 def markdown_to_html(markdown: str) -> str:
@@ -1049,22 +1277,130 @@ def markdown_to_html(markdown: str) -> str:
     return "\n".join(html)
 
 
-def html_page(title: str, markdown: str, language: str, nav: list[tuple[str, str]]) -> str:
-    nav_links = " | ".join(
-        f'<a href="{escape(filename)}">{escape(label)}</a>' for filename, label in nav
+def html_page(
+    title: str,
+    markdown: str,
+    language: str,
+    nav: list[tuple[str, str]],
+    current_file: str,
+) -> str:
+    ru = language.lower() == "russian"
+    current_index = next(
+        (index for index, (filename, _label) in enumerate(nav) if filename == current_file),
+        -1,
     )
+    nav_links = "\n".join(
+        (
+            f'<a class="nav-link {"active" if filename == current_file else ""}" '
+            f'href="{escape(filename)}">{escape(label)}</a>'
+        )
+        for filename, label in nav
+    )
+    previous_link = ""
+    next_link = ""
+    if current_index > 0:
+        prev_file, prev_label = nav[current_index - 1]
+        previous_link = (
+            f'<a class="pager prev" href="{escape(prev_file)}">'
+            f'{"Назад" if ru else "Previous"}: {escape(prev_label)}</a>'
+        )
+    if 0 <= current_index < len(nav) - 1:
+        next_file, next_label = nav[current_index + 1]
+        next_link = (
+            f'<a class="pager next" href="{escape(next_file)}">'
+            f'{"Дальше" if ru else "Next"}: {escape(next_label)}</a>'
+        )
     return f"""<!doctype html>
 <html lang="{'ru' if language.lower() == 'russian' else 'en'}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{escape(title)}</title>
+  <style>{final_pack_css()}</style>
 </head>
 <body>
-  <nav>{nav_links}</nav>
-  <main>
+  <div class="shell">
+    <aside class="sidebar">
+      <span class="brand">Growth Funnel Pack</span>
+      <nav class="nav-list" aria-label="{'Навигация по пакету' if ru else 'Pack navigation'}">
+{nav_links}
+      </nav>
+    </aside>
+    <main class="page">
+      <header class="page-hero">
+        <span class="eyebrow">{'Документ' if ru else 'Document'}</span>
+        <h1>{escape(title)}</h1>
+      </header>
+      <article class="content-card">
 {markdown_to_html(markdown)}
-  </main>
+      </article>
+      <footer class="page-footer">
+        {previous_link}
+        {next_link}
+      </footer>
+    </main>
+  </div>
+</body>
+</html>
+"""
+
+
+def index_html_page(
+    title: str,
+    language: str,
+    nav: list[tuple[str, str]],
+    docs: list[tuple[str, str, str]],
+) -> str:
+    ru = language.lower() == "russian"
+    nav_links = "\n".join(
+        f'<a class="nav-link {"active" if filename == "00_index.html" else ""}" '
+        f'href="{escape(filename)}">{escape(label)}</a>'
+        for filename, label in nav
+    )
+    intro = (
+        "Навигационная версия итогового пакета: начните со статуса, затем переходите по страницам слева или кнопкой дальше."
+        if ru
+        else "Navigation view for the final pack: start with status, then move through the pages from the left rail or next buttons."
+    )
+    cards = "\n".join(
+        f"""<a class="index-card" href="{escape(html_name)}">
+          <span>{index:02d}</span>
+          <strong>{escape(label)}</strong>
+          <small>{'Открыть страницу и перейти дальше по пакету' if ru else 'Open this page and continue through the pack'}</small>
+        </a>"""
+        for index, (_md_name, html_name, label) in enumerate(docs, start=1)
+    )
+    first_file, first_label = docs[0][1], docs[0][2]
+    return f"""<!doctype html>
+<html lang="{'ru' if ru else 'en'}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{escape(title)}</title>
+  <style>{final_pack_css()}</style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <span class="brand">Growth Funnel Pack</span>
+      <nav class="nav-list" aria-label="{'Навигация по пакету' if ru else 'Pack navigation'}">
+{nav_links}
+      </nav>
+    </aside>
+    <main class="page">
+      <header class="page-hero">
+        <span class="eyebrow">{'Оглавление' if ru else 'Index'}</span>
+        <h1>{escape(title)}</h1>
+        <p>{escape(intro)}</p>
+      </header>
+      <section class="index-grid">
+{cards}
+      </section>
+      <footer class="page-footer">
+        <a class="pager next" href="{escape(first_file)}">{"Начать" if ru else "Start"}: {escape(first_label)}</a>
+      </footer>
+    </main>
+  </div>
 </body>
 </html>
 """
@@ -1280,10 +1616,10 @@ def write_final_pack(
         (html_name, title) for _md_name, html_name, title in docs
     ]
     (final_dir / "00_index.html").write_text(
-        html_page(index_title, index_body, language, nav), encoding="utf-8"
+        index_html_page(index_title, language, nav, docs), encoding="utf-8"
     )
     (final_dir / "index.html").write_text(
-        html_page(index_title, index_body, language, nav), encoding="utf-8"
+        index_html_page(index_title, language, nav, docs), encoding="utf-8"
     )
 
     for slug, title, markdown in doc_specs:
@@ -1294,7 +1630,7 @@ def write_final_pack(
             body = f"# {title}\n\n{'Пока нет данных.' if ru else 'No data yet.'}\n"
         (final_dir / md_name).write_text(body, encoding="utf-8")
         (final_dir / html_name).write_text(
-            html_page(title, body, language, nav), encoding="utf-8"
+            html_page(title, body, language, nav, html_name), encoding="utf-8"
         )
     return final_dir
 

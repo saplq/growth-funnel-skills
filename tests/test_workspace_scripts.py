@@ -74,8 +74,12 @@ def assert_final_pack(workspace: Path) -> None:
             raise AssertionError(f"frontmatter leaked into final markdown: {md_path}")
     for html_path in final_dir.glob("*.html"):
         html = html_path.read_text(encoding="utf-8").lower()
-        if "<style" in html or "stylesheet" in html:
-            raise AssertionError(f"css leaked into final html: {html_path}")
+        if "<style" not in html:
+            raise AssertionError(f"missing inline style in final html: {html_path}")
+        if "stylesheet" in html:
+            raise AssertionError(f"external css leaked into final html: {html_path}")
+        if "nav-list" not in html:
+            raise AssertionError(f"missing final-pack navigation in html: {html_path}")
 
 
 class WorkspaceScriptsTest(unittest.TestCase):
@@ -323,6 +327,13 @@ class WorkspaceScriptsTest(unittest.TestCase):
             self.assertIn("| Событие | Этап | Назначение |", final_tracking)
             final_html = (workspace / "final" / "index.html").read_text(encoding="utf-8")
             self.assertIn("<title>Оглавление</title>", final_html)
+            self.assertIn("index-grid", final_html)
+            self.assertIn("Начать", final_html)
+            page_html = (workspace / "final" / "01_status_next_steps.html").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("class=\"pager next\"", page_html)
+            self.assertIn("Дальше", page_html)
             final_research = (workspace / "final" / "07_research_evidence.md").read_text(
                 encoding="utf-8"
             )
