@@ -1,0 +1,52 @@
+{
+  "cases": [
+    {
+      "name": "empty_workspace",
+      "input": "",
+      "expected": [
+        "all workspace files are created",
+        "11_presentation.html exists as a visual placeholder",
+        "completeness_score is low",
+        "critical_missing_fields includes offer, persona, target KPI, channel, proof",
+        "next_best_input has no more than 3 questions"
+      ]
+    },
+    {
+      "name": "partial_offer_notes",
+      "input": "Offer: AI CRM cleanup for small agencies\nICP: agency owners\nChannel: cold outbound",
+      "expected": [
+        "offer, ICP, and primary channel are filled",
+        "target KPI remains missing",
+        "experiment card remains blocked"
+      ]
+    },
+    {
+      "name": "no_proof_yet",
+      "input": "Offer: weekly conversion audits\nICP: SaaS founders\nTarget KPI: trial activation\nChannel: LinkedIn content\nNo proof yet",
+      "expected": [
+        "minimum gate is satisfied",
+        "qualification score is lower than with proof",
+        "outputs can render without fabricated claims",
+        "presentation HTML is generated"
+      ]
+    },
+    {
+      "name": "high_value_slow_ttfv",
+      "input": "Offer: enterprise analytics migration\nICP: finance teams\nTarget KPI: demo booked rate\nChannel: sales-assisted\nValue tier: high\nTTFV: 30 minutes",
+      "expected": [
+        "selected skeleton is demo_led",
+        "assisted fallback warning is present when self serve is claimed"
+      ]
+    },
+    {
+      "name": "rich_trial_to_value",
+      "input": "Offer: connect Stripe and see churn risks in 3 minutes\nICP: SaaS operators\nTarget KPI: first value reached\nChannel: search\nProof: customer case showed 18% churn recovery\nTTFV: 3\nSelf serve: true",
+      "expected": [
+        "selected skeleton is trial_to_value",
+        "screen specs are draft",
+        "tracking plan includes First Value Reached",
+        "presentation HTML summarizes scores, routing, and screen stages"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "should_trigger": [
+    "Design a conversion funnel for my SaaS onboarding flow.",
+    "Create a landing page strategy and tracking plan for a new subscription product.",
+    "Help me route leads by awareness and intent before the demo CTA.",
+    "Turn this offer and ICP into a measurable funnel blueprint.",
+    "Build an experiment card for improving trial to paid conversion.",
+    "We need screen specs for a diagnostic onboarding quiz.",
+    "Create a funnel workspace from incomplete notes.",
+    "Decide whether this high ACV lead should go to self serve or demo.",
+    "Map events for activation, first value, paywall, and retention.",
+    "Create a postmortem template for our growth experiment."
+  ],
+  "should_not_trigger": [
+    "Rewrite this paragraph to sound more friendly.",
+    "Fix this TypeScript type error.",
+    "Clean duplicate rows in this spreadsheet.",
+    "Generate a logo for my product.",
+    "Summarize this legal contract.",
+    "Create a Python FastAPI endpoint.",
+    "Explain how DNS records work.",
+    "Make a generic hero section with no funnel goal.",
+    "Translate this email into English.",
+    "Debug my Docker build."
+  ]
+}
+
