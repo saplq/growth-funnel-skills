@@ -1,8 +1,8 @@
 # Growth Funnel Skills
 
-Installable Agent Skill for creating source-backed growth funnel workspaces from incomplete product, SaaS, subscription, creator, marketplace, or assisted-sales context.
+Installable Agent Skill for creating source-backed growth funnel strategy from incomplete product, SaaS, subscription, creator, marketplace, or assisted-sales context.
 
-The skill is `designing-growth-funnels`. It creates a durable `runtime/` state layer, normalizes intake and research evidence, tracks missing inputs, records optional specialist/subagent outputs, and renders a clean `final/` package with one Markdown document and one self-contained HTML page per topic.
+The skill is `designing-growth-funnels`. The user asks for a marketing funnel; the agent internally creates a durable workspace, normalizes intake and research evidence, tracks missing inputs, and renders a clean `final/` package with a funnel blueprint, screen specs, tracking plan, experiment card, risks, and execution plan.
 
 Repository: `saplq/growth-funnel-skills`
 
@@ -48,23 +48,27 @@ zip -r designing-growth-funnels.zip designing-growth-funnels
 After installing, ask your agent:
 
 ```text
-Use $designing-growth-funnels to create a deep-research funnel workspace for my product.
+Use $designing-growth-funnels.
+
+Собери маркетинговую growth funnel для моего SaaS и выдай финальный пакет на русском языке.
 ```
 
-Then paste rough context:
+Then paste rough context in natural language:
 
 ```text
-Offer: connect Stripe and see churn risks in 3 minutes
-ICP: SaaS operators
-Target KPI: First Value Reached / Trial Started
-Channel: search
-TTFV: 3
-Self serve: true
-Proof: customer case showed 18% churn recovery
-Metric: trial activation 22% last month
+Проект: SignalDesk
+Оффер: подключить Stripe и CRM, чтобы за 5 минут увидеть риски оттока и список клиентов, которых нужно вернуть на этой неделе.
+ICP: основатели и операционные руководители B2B SaaS с MRR от $20k до $300k.
+Target KPI: First Value Reached / Trial Started.
+Primary channel: LinkedIn outbound + content-led landing page.
+Pricing: $99/мес self-serve, $399/мес с assisted onboarding.
+Proof: пилотная когорта из 12 SaaS-команд нашла в среднем 18% клиентов с высоким churn risk за первую неделю.
+Metric: trial activation 27% за прошлый месяц.
 ```
 
-The agent should create the workspace, ingest notes, validate readiness, render `final/`, and reply with changed files, scores, blockers, and the next smallest useful input.
+The agent should handle the internal pipeline itself: create the workspace, ingest notes, validate readiness, render `final/`, and reply with the final pack path, scores, blockers, and the next smallest useful input. End users do not need to run scripts manually.
+
+The final user-facing output lives in `final/index.html` plus paired Markdown/HTML pages. `runtime/` is only the agent's working state and audit trail.
 
 If the agent has web, file, CRM, analytics, or research tools, it should collect evidence outside the bundled scripts and then ingest normalized notes, source URLs, competitor rows, pricing, positioning, CTA, onboarding, reviews, and proof snippets into the workspace. The bundled scripts are deterministic and offline.
 

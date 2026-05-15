@@ -7,6 +7,8 @@ description: Create deep-research growth funnel workspaces from incomplete SaaS,
 
 Design measurable growth funnels from incomplete context. Work as a growth architect and research orchestrator, not as a generic copywriter.
 
+The user-facing job is to deliver a practical marketing funnel package. Treat workspace creation, ingestion, validation, and rendering as internal mechanics unless the user asks for CLI details.
+
 ## Core Workflow
 
 1. Create or update a workspace before writing recommendations.
@@ -14,7 +16,7 @@ Design measurable growth funnels from incomplete context. Work as a growth archi
 3. Ingest pasted notes, documents, metrics, research, competitor observations, or specialist outputs into `runtime/`.
 4. Validate after every meaningful update.
 5. Render `final/` only after validation, even if some recommendations stay blocked.
-6. Reply with changed files, scores, blockers, and the next smallest useful input.
+6. Reply with the `final/index.html` path, scores, blockers, and the next smallest useful input. Mention changed runtime files only when useful for debugging.
 
 Run bundled scripts yourself when filesystem access exists:
 
