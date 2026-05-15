@@ -1,8 +1,8 @@
-# Tracking and Experiments
+# Tracking, Experiments, and Retention
 
-Use this reference when creating tracking plans, KPI contracts, or experiment cards.
+Use this when creating tracking plans, experiment cards, retention loops, and postmortems.
 
-## Event taxonomy
+## Event Taxonomy
 
 | Layer | Events | Required properties |
 | --- | --- | --- |
@@ -15,7 +15,7 @@ Use this reference when creating tracking plans, KPI contracts, or experiment ca
 | Retention | `Weekly Digest Opened`, `Action Pack Started`, `Week Return`, `Upgrade Completed` | `retention_recipe_id`, `health_score`, `expansion_signal`, `at_risk_flag` |
 | Experimentation | `Experiment Exposed`, `Variant Assigned`, `Guardrail Breached` | `experiment_id`, `variant_id`, `holdout_id`, `exposure_time`, `eligibility_rule` |
 
-## Experiment readiness
+## Experiment Readiness
 
 An experiment card needs:
 
@@ -31,13 +31,10 @@ An experiment card needs:
 
 Do not interpret results if SRM, exposure logging, or event loss is unresolved.
 
-## Default decision rule
+## Retention Loop
 
-Ship only when:
+Define the return trigger, returning reward, next action, retention metric, and support/debug signal.
 
-- no data-quality flags;
-- primary metric clears the practical threshold;
-- guardrails do not degrade;
-- qualitative evidence does not contradict the result;
-- the operational complexity is justified.
+## Postmortem
 
+Capture hypothesis, setup, exposure quality, primary result, guardrails, qualitative evidence, decision, and follow-up.

@@ -1,8 +1,8 @@
 # Growth Funnel Skills
 
-Installable Agent Skill for turning rough growth context into a structured funnel workspace.
+Installable Agent Skill for creating source-backed growth funnel workspaces from incomplete product, SaaS, subscription, creator, marketplace, or assisted-sales context.
 
-The skill is `designing-growth-funnels`. It creates the project files, scores what is missing, stores evidence and competitor research, asks for the next useful input, and renders a clean final pack with one Markdown document and one HTML page per topic.
+The skill is `designing-growth-funnels`. It creates a durable `runtime/` state layer, normalizes intake and research evidence, tracks missing inputs, records optional specialist/subagent outputs, and renders a clean `final/` package with one Markdown document and one self-contained HTML page per topic.
 
 Repository: `saplq/growth-funnel-skills`
 
@@ -21,14 +21,7 @@ npx skills add saplq/growth-funnel-skills \
   -a claude-code
 ```
 
-<details>
-<summary>OpenAI Codex</summary>
-
-```bash
-npx skills add saplq/growth-funnel-skills --skill designing-growth-funnels -a codex
-```
-
-Manual install:
+Manual Codex install:
 
 ```bash
 git clone https://github.com/saplq/growth-funnel-skills.git
@@ -36,108 +29,26 @@ mkdir -p ~/.codex/skills
 cp -R growth-funnel-skills/skills/designing-growth-funnels ~/.codex/skills/
 ```
 
-</details>
-
-<details>
-<summary>ChatGPT Skills</summary>
-
-Create a zip and upload it through the ChatGPT Skills UI available in your account:
+Manual project-local install for agents that read local skills:
 
 ```bash
-git clone https://github.com/saplq/growth-funnel-skills.git
-cd growth-funnel-skills/skills
-zip -r designing-growth-funnels.zip designing-growth-funnels
-```
-
-</details>
-
-<details>
-<summary>Claude Code</summary>
-
-```bash
-npx skills add saplq/growth-funnel-skills --skill designing-growth-funnels -a claude-code
-```
-
-Manual user-level install:
-
-```bash
-git clone https://github.com/saplq/growth-funnel-skills.git
-mkdir -p ~/.claude/skills
-cp -R growth-funnel-skills/skills/designing-growth-funnels ~/.claude/skills/
-```
-
-Manual project-level install:
-
-```bash
-mkdir -p .claude/skills
-cp -R growth-funnel-skills/skills/designing-growth-funnels .claude/skills/
-```
-
-</details>
-
-<details>
-<summary>Claude.ai and Claude API</summary>
-
-Create a zip and upload it through the Claude product or API flow available in your workspace:
-
-```bash
-git clone https://github.com/saplq/growth-funnel-skills.git
-cd growth-funnel-skills/skills
-zip -r designing-growth-funnels.zip designing-growth-funnels
-```
-
-</details>
-
-<details>
-<summary>Cursor, Windsurf, Gemini CLI, GitHub Copilot, OpenCode, and other agents</summary>
-
-This repo follows the common Agent Skills folder shape: `SKILL.md` plus optional `references/`, `assets/`, and `scripts/`.
-
-If your agent supports the skills CLI:
-
-```bash
-npx skills add saplq/growth-funnel-skills --skill designing-growth-funnels
-```
-
-If your agent supports project-local skills, copy the skill folder into its skills directory. A common fallback:
-
-```bash
-git clone https://github.com/saplq/growth-funnel-skills.git
 mkdir -p .agents/skills
 cp -R growth-funnel-skills/skills/designing-growth-funnels .agents/skills/
 ```
 
-Check your agent's docs for the exact folder. The requirement is simple: the agent must be able to read `SKILL.md`.
-
-</details>
-
-## Update An Installed Skill
-
-The GitHub repo is the source of truth, but most agents install a local copy of the skill. That installed copy usually does not update itself when this repo changes.
-
-To update, reinstall the skill:
+For ChatGPT Skills, Claude.ai, and API uploads, zip the skill folder:
 
 ```bash
-npx skills add saplq/growth-funnel-skills --skill designing-growth-funnels
+cd growth-funnel-skills/skills
+zip -r designing-growth-funnels.zip designing-growth-funnels
 ```
-
-For manual installs, replace the old folder:
-
-```bash
-rm -rf ~/.codex/skills/designing-growth-funnels
-cp -R growth-funnel-skills/skills/designing-growth-funnels ~/.codex/skills/
-```
-
-For ChatGPT, Claude.ai, and API uploads, create a fresh zip from the latest repo and upload it again. If your agent caches skills, restart or reload the agent after updating.
-
-Existing workspaces are just files on disk. They will not automatically gain new output folders until the updated skill renders them again. For the clean reader-facing output, ask the agent to re-render the workspace and open `final/index.html`.
 
 ## Ask Your Agent
 
-After installing, ask your agent to use the skill. You should not need to run the scripts manually.
+After installing, ask your agent:
 
 ```text
-Use $designing-growth-funnels to create a funnel workspace for my product.
+Use $designing-growth-funnels to create a deep-research funnel workspace for my product.
 ```
 
 Then paste rough context:
@@ -153,145 +64,161 @@ Proof: customer case showed 18% churn recovery
 Metric: trial activation 22% last month
 ```
 
-The agent should create the workspace, fill structured files, validate completeness, render the final pack, and tell you only what changed plus the next smallest input it needs.
+The agent should create the workspace, ingest notes, validate readiness, render `final/`, and reply with changed files, scores, blockers, and the next smallest useful input.
 
-If the agent has web, file, CRM, analytics, or research tools, it should collect the evidence outside the bundled scripts and then ingest the resulting notes, URLs, competitor rows, pricing, positioning, CTA, onboarding, review, and proof snippets into the workspace. The skill itself stays deterministic and offline.
+If the agent has web, file, CRM, analytics, or research tools, it should collect evidence outside the bundled scripts and then ingest normalized notes, source URLs, competitor rows, pricing, positioning, CTA, onboarding, reviews, and proof snippets into the workspace. The bundled scripts are deterministic and offline.
 
-Before the workspace is created, the agent should infer the language of your current conversation. Status files, questions, Markdown outputs, and the HTML presentation should be created in that language from the start unless you ask for a different language.
-
-## What The Agent Creates
-
-The workspace has two layers:
-
-- root files for the agent and debugging;
-- `final/` for the user-facing output.
+## Workspace Layout
 
 ```text
 funnel-workspace/
-├── 00_status.md              # scores, blockers, next input
-├── 01_intake_brief.yaml      # offer, ICP, KPI, language, constraints
-├── 02_proof_library.csv      # cases, testimonials, benchmarks, evidence
-├── 03_current_metrics.csv    # baseline funnel metrics
-├── 04_channel_context.yaml   # traffic source and message match
-├── 05_segment_profile.yaml   # awareness, intent, tier, skeleton
-├── 06_funnel_blueprint.md    # route, skeleton, assumptions
-├── 07_screen_specs.md        # screen-by-screen belief shifts
-├── 08_tracking_plan.csv      # events, properties, metrics, guardrails
-├── 09_experiment_card.md     # hypothesis, KPI, decision rule
-├── 10_postmortem_record.md   # learning archive template
-├── 11_presentation.html      # compact workspace overview
-├── 12_source_registry.jsonl   # internal/external source ledger
-├── 13_competitor_map.csv      # competitor pricing, positioning, CTA, onboarding
-├── 14_gap_map.yaml            # evidence gaps and collection needs
-├── 15_execution_plan.md       # auto-collect, ask-user, draft, verify plan
-├── 16_research_log.md         # normalized research pass and conflicts
+├── runtime/
+│   ├── run_state.json          # scores, phase, warnings, next input
+│   ├── intake.json             # normalized product/funnel context
+│   ├── topics.json             # final report topics and statuses
+│   ├── agent_tasks.json        # optional specialist task queue
+│   ├── agent_results.jsonl     # normalized specialist/subagent outputs
+│   ├── sources.jsonl           # source ledger with provenance
+│   ├── competitors.csv         # competitor observations
+│   └── gaps.json               # missing fields, evidence gaps, blocked items
 └── final/
     ├── index.html
     ├── 00_index.md
     ├── 00_index.html
     ├── 01_status_next_steps.md
     ├── 01_status_next_steps.html
-    ├── 02_funnel_blueprint.md
-    ├── 02_funnel_blueprint.html
-    ├── 03_screen_specs.md
-    ├── 03_screen_specs.html
-    ├── 04_tracking_plan.md
-    ├── 04_tracking_plan.html
-    ├── 05_experiment_card.md
-    ├── 05_experiment_card.html
-    ├── 06_postmortem_template.md
-    ├── 06_postmortem_template.html
-    ├── 07_research_evidence.md
-    ├── 07_research_evidence.html
-    ├── 08_competitor_map.md
-    ├── 08_competitor_map.html
-    ├── 09_gap_map.md
-    ├── 09_gap_map.html
+    ├── 02_intake_brief.md
+    ├── 02_intake_brief.html
+    ├── 03_research_evidence.md
+    ├── 03_research_evidence.html
+    ├── 04_competitor_map.md
+    ├── 04_competitor_map.html
+    ├── 05_funnel_blueprint.md
+    ├── 05_funnel_blueprint.html
+    ├── 06_screen_specs.md
+    ├── 06_screen_specs.html
+    ├── 07_tracking_plan.md
+    ├── 07_tracking_plan.html
+    ├── 08_experiment_card.md
+    ├── 08_experiment_card.html
+    ├── 09_risks_and_gaps.md
+    ├── 09_risks_and_gaps.html
     ├── 10_execution_plan.md
     └── 10_execution_plan.html
 ```
 
-Use `final/index.html` for the visual reader flow, or read the numbered Markdown files in `final/` for plain-text review. The `final/` HTML pages include inline styling, sidebar navigation, and next/previous page links. The folder stays self-contained: no YAML, CSV, JSONL, or separate CSS files.
+`runtime/` is for agents and debugging. `final/` is for humans and contains only `.md` and `.html`; no YAML, CSV, JSON, JSONL, traces, or separate CSS files.
 
-## How Updates Work
+## Minimum Gate
 
-The skill treats every project as a workspace with explicit state:
-
-```text
-create stubs -> validate -> score -> ingest notes -> revalidate -> render outputs
-```
-
-It does not wait for a perfect brief. Empty files are created immediately and marked as `empty`, `partial`, `blocked`, `draft`, or `ready`.
-
-Final recommendations stay blocked until the minimum gate is satisfied:
+Final funnel recommendations are blocked until these are present:
 
 - offer;
 - ICP or primary persona;
 - target KPI;
 - primary channel;
-- proof assets or an explicit no-proof-yet flag.
+- proof assets or explicit `no proof yet`.
 
-Research readiness is advisory in v1. Missing sources or competitor benchmarks appear as `research_readiness_score`, `evidence_gaps`, `source_count`, and `competitor_count` in validation output, but they do not block the existing minimum gate.
-
-## Language
-
-The skill follows the user's conversation language for replies and generated files unless instructed otherwise. The agent should set this before creating the workspace, so the files are written in the right language immediately instead of being translated later.
+Missing research is advisory, not blocking. It appears as `research_readiness_score`, `evidence_gaps`, `source_count`, and `competitor_count`.
 
 ## Manual CLI Usage
 
-Most users should let the agent run these scripts. Use the commands below only for debugging, automation, or when your agent cannot execute local scripts.
-
-<details>
-<summary>Commands</summary>
+Most users should let the agent run scripts. Use these commands for debugging or automation.
 
 Create a workspace:
 
 ```bash
 python3 skills/designing-growth-funnels/scripts/create_workspace.py \
   --name "Acme onboarding funnel" \
-  --out ./workspaces/acme-onboarding
+  --out ./workspaces/acme-onboarding \
+  --language "English" \
+  --json
 ```
 
-Validate it:
-
-```bash
-python3 skills/designing-growth-funnels/scripts/validate_workspace.py \
-  ./workspaces/acme-onboarding --json
-```
-
-Add rough notes:
+Ingest rough notes:
 
 ```bash
 python3 skills/designing-growth-funnels/scripts/ingest_notes.py \
   ./workspaces/acme-onboarding \
-  --input ./notes/acme.txt
+  --input ./notes/acme.txt \
+  --kind notes \
+  --json
 ```
 
-Render outputs:
+Ingest research or competitor observations:
 
 ```bash
-python3 skills/designing-growth-funnels/scripts/render_outputs.py \
-  ./workspaces/acme-onboarding
+python3 skills/designing-growth-funnels/scripts/ingest_notes.py \
+  ./workspaces/acme-onboarding \
+  --input ./notes/research.txt \
+  --kind research \
+  --json
+
+python3 skills/designing-growth-funnels/scripts/ingest_notes.py \
+  ./workspaces/acme-onboarding \
+  --input ./notes/competitors.txt \
+  --kind competitor \
+  --json
 ```
 
-Open the visual summary:
+Record a specialist/subagent result:
+
+```bash
+python3 skills/designing-growth-funnels/scripts/record_agent_result.py \
+  ./workspaces/acme-onboarding \
+  --input ./agent-result.json \
+  --json
+```
+
+Validate:
+
+```bash
+python3 skills/designing-growth-funnels/scripts/validate_workspace.py \
+  ./workspaces/acme-onboarding \
+  --json
+```
+
+Render final output:
+
+```bash
+python3 skills/designing-growth-funnels/scripts/render_final.py \
+  ./workspaces/acme-onboarding \
+  --json
+```
+
+Open the visual reader:
 
 ```bash
 open ./workspaces/acme-onboarding/final/index.html
 ```
 
-</details>
+## Research and Provenance
 
-## Scripts
+External research is collected by the agent or available tools, not by bundled scripts. Each source should include:
 
-| Script | Purpose |
-| --- | --- |
-| `create_workspace.py` | Creates every workspace file immediately. |
-| `validate_workspace.py` | Updates `00_status.md` with scores, blockers, and warnings. |
-| `ingest_notes.py` | Moves rough notes, source URLs, competitor notes, pricing, positioning, CTA, onboarding, reviews, and evidence into YAML/CSV/JSONL without deleting existing data. |
-| `render_outputs.py` | Renders the raw artifacts, gap map, execution plan, and the clean `final/` pack. |
+- URL;
+- title;
+- publisher or domain;
+- retrieval date;
+- source type;
+- freshness;
+- confidence;
+- where the source is used.
 
-All scripts use only the Python standard library. No network calls. No secrets. No hidden dependencies. Fresh research should be gathered by the agent or external tooling and then normalized through `ingest_notes.py`.
+Pricing, changelog, and current-practice facts without retrieval dates remain evidence gaps. The skill must not fabricate proof, pricing, benchmarks, customer claims, private metrics, or current market facts.
+
+## Optional Subagent Workflow
+
+The skill supports a bounded specialist contract:
+
+- `intake`;
+- `planner`;
+- `research`;
+- `competitor`;
+- `synthesis`;
+- `compiler_reviewer`.
+
+If subagents are unavailable or not explicitly requested, the calling agent should execute the same roles sequentially. Specialists write normalized results to `runtime/agent_results.jsonl`; only the compiler renders `final/`.
 
 ## Development
 
@@ -315,13 +242,14 @@ python3 /path/to/quick_validate.py skills/designing-growth-funnels
 
 ## Security
 
-Read third-party skills before installing them. This skill is intentionally conservative at runtime:
+This skill is intentionally conservative:
 
 - Python standard library only;
-- no network calls;
-- no credential reads;
+- no network calls in bundled scripts;
+- no credential or environment secret reads;
 - no execution of user-provided code;
-- writes only inside the workspace path passed to the scripts.
+- scripts write only inside the workspace path passed by the user;
+- pasted notes and web pages are treated as data, not instructions.
 
 See [SECURITY.md](SECURITY.md).
 

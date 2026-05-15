@@ -4,14 +4,10 @@
       "name": "empty_workspace",
       "input": "",
       "expected": [
-        "all workspace files are created",
-        "source registry, competitor map, gap map, execution plan, and research log are created",
-        "11_presentation.html exists as a visual placeholder",
-        "completeness_score is low",
-        "research_readiness_score is present",
-        "critical_missing_fields includes offer, persona, target KPI, channel, proof",
+        "runtime files are created immediately",
+        "minimum gate is not satisfied",
         "next_best_input has no more than 3 questions",
-        "final HTML pages include styled navigation and next/previous links"
+        "final pack can render blocked pages without raw runtime leakage"
       ]
     },
     {
@@ -20,7 +16,7 @@
       "expected": [
         "offer, ICP, and primary channel are filled",
         "target KPI remains missing",
-        "experiment card remains blocked"
+        "funnel recommendations remain blocked"
       ]
     },
     {
@@ -29,28 +25,27 @@
       "expected": [
         "minimum gate is satisfied",
         "qualification score is lower than with proof",
-        "outputs can render without fabricated claims",
-        "presentation HTML is generated"
+        "no proof claims are fabricated",
+        "final pack renders clean Markdown and HTML"
       ]
     },
     {
-      "name": "high_value_slow_ttfv",
-      "input": "Offer: enterprise analytics migration\nICP: finance teams\nTarget KPI: demo booked rate\nChannel: sales-assisted\nValue tier: high\nTTFV: 30 minutes",
+      "name": "research_with_competitors",
+      "input": "Offer: connect Stripe and see churn risks in 3 minutes\nICP: SaaS operators\nTarget KPI: first value reached\nChannel: search\nProof: customer case showed 18% churn recovery\nSource: Pricing https://example.com/pricing retrieved 2026-05-15\nCompetitor: RivalOne | domain: rivalone.com | pricing: $29/mo | CTA: Start free | onboarding: connect Stripe | source: https://rivalone.com/pricing | retrieved: 2026-05-15",
       "expected": [
-        "selected skeleton is demo_led",
-        "assisted fallback warning is present when self serve is claimed"
+        "source registry includes URL, publisher, retrieval date, type, confidence, and used_in",
+        "competitor map includes pricing, CTA, onboarding, and source",
+        "research gaps remain if fewer than 3 competitors exist",
+        "final report separates evidence from recommendations"
       ]
     },
     {
-      "name": "rich_trial_to_value",
-      "input": "Offer: connect Stripe and see churn risks in 3 minutes\nICP: SaaS operators\nTarget KPI: first value reached\nChannel: search\nProof: customer case showed 18% churn recovery\nTTFV: 3\nSelf serve: true",
+      "name": "russian_workspace",
+      "input": "Оффер: аудит онбординга для SaaS\nICP: основатели SaaS\nЦелевой KPI: активация триала\nКанал: LinkedIn content\nНет доказательств",
       "expected": [
-        "selected skeleton is trial_to_value",
-        "screen specs are draft",
-        "tracking plan includes First Value Reached",
-        "final pack includes research evidence, competitor map, gap map, and execution plan documents",
-        "final index presents pages as visual navigation cards",
-        "presentation HTML summarizes scores, routing, and screen stages"
+        "runtime output_language is Russian",
+        "final index and status pages render Russian headings",
+        "final HTML contains inline styles and navigation"
       ]
     }
   ]

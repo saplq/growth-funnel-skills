@@ -1,8 +1,7 @@
 interface:
-  display_name: "Growth Funnel Designer"
-  short_description: "Design measurable growth funnels"
-  default_prompt: "Use $designing-growth-funnels to create a structured funnel workspace for my product."
+  display_name: "Growth Funnel Researcher"
+  short_description: "Create source-backed growth funnel workspaces"
+  default_prompt: "Use $designing-growth-funnels to create a deep-research funnel workspace for my product."
 
 policy:
   allow_implicit_invocation: true
-

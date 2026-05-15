@@ -1,41 +1,32 @@
 # Intake and Qualification
 
-Use this reference when collecting inputs, scoring readiness, or deciding whether a project should move to funnel build, strategy sprint, or no-go.
+Use this when collecting context, scoring readiness, or deciding what to ask next.
 
-## Required intake fields
+## Required Minimum Gate
 
 - `offer`: what is sold and what result it promises.
-- `icp`: who the product is for.
-- `primary_persona`: buyer, user, champion, creator, admin, or operator.
-- `jtbd`: the outcome the user hires the product to create.
-- `target_kpi`: the single metric the funnel should improve.
-- `pricing`: price, plan, or sales motion when known.
-- `time_to_first_value_minutes`: realistic path to first meaningful value.
-- `product_constraints`: integrations, compliance, setup, or operational constraints.
-- `experiment_bandwidth`: how many tests the team can ship and measure.
-- `explicit_no_proof_yet`: true only when the user confirms there are no proof assets yet.
+- `icp` or `primary_persona`: who the funnel is for.
+- `target_kpi`: one metric the funnel should improve.
+- `primary_channel`: where qualified traffic or leads come from.
+- `proof_assets` or `explicit_no_proof_yet`: evidence state.
 
-## Proof library
+## Optional Inputs
 
-Proof can include:
+- `jtbd`
+- `pricing`
+- `time_to_first_value_minutes`
+- `sales_motion`
+- `product_constraints`
+- `unit_economics`
+- `implementation_bandwidth`
+- `experiment_bandwidth`
 
-- customer case study;
-- testimonial;
-- screenshot;
-- benchmark;
-- demo output;
-- before/after metric;
-- founder or expert proof;
-- live product evidence.
+## Scoring
 
-If no proof exists, keep the project usable but lower the qualification score and avoid strong claims.
-
-## Qualification score
-
-Use a 100-point score:
+Qualification score uses 100 points:
 
 - clear pain and promise: 20;
-- proof assets: 10;
+- proof assets: 10, or 3 when `explicit_no_proof_yet` is true;
 - reachable channel and audience: 15;
 - measurable path: 15;
 - realistic first value: 15;
@@ -45,11 +36,18 @@ Use a 100-point score:
 
 Default decision:
 
-- `70+`: Go to funnel build.
-- `55-69`: Strategy or research sprint.
-- `<55`: No-go for growth build until proposition, proof, or measurement improves.
+- `70+`: go to funnel build;
+- `55-69`: strategy/research sprint;
+- `<55`: no-go for growth build until proposition, proof, or measurement improves.
 
-## Intake behavior
+## Intake Behavior
 
-Never ask for a long questionnaire. Ask for at most 3 fields at a time, chosen by impact on the score. Prefer rough input over perfect input, then normalize it into the workspace.
+Ask at most 3 questions. Choose missing fields by impact:
 
+1. target KPI;
+2. offer;
+3. ICP/persona;
+4. primary channel;
+5. proof/no-proof state.
+
+Prefer rough input over waiting for perfect input. Mark assumptions clearly.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Ingest rough user notes into structured workspace files without deleting data."""
+"""Ingest rough notes, research, competitors, or metrics into runtime state."""
 
 from __future__ import annotations
 
@@ -8,29 +8,24 @@ import json
 import re
 import sys
 from pathlib import Path
-from urllib.parse import urlparse
+from typing import Any
 
 from workspace_lib import (
-    COMPETITOR_FILE,
-    CHANNEL_FILE,
-    CSV_HEADERS,
-    INTAKE_FILE,
-    METRICS_FILE,
-    PROOF_FILE,
-    SEGMENT_FILE,
-    SOURCE_FILE,
-    append_csv_rows,
-    append_jsonl_rows,
+    COMPETITOR_HEADERS,
+    append_csv_unique,
+    append_jsonl_unique,
     detect_language,
     ensure_workspace,
-    present,
-    read_flat_yaml,
-    validate_and_write_status,
-    write_flat_yaml,
+    load_workspace,
+    normalize_competitor,
+    normalize_source,
+    runtime_path,
+    update_intake,
+    validate_and_write,
 )
 
 
-INTAKE_LABELS = {
+LABELS = {
     "project": "project_name",
     "project name": "project_name",
     "проект": "project_name",
@@ -42,103 +37,58 @@ INTAKE_LABELS = {
     "продукт": "offer",
     "promise": "offer",
     "обещание": "offer",
-    "pricing": "pricing",
-    "price": "pricing",
-    "цена": "pricing",
-    "тариф": "pricing",
     "icp": "icp",
     "ицп": "icp",
-    "целевая аудитория": "icp",
     "audience": "icp",
     "аудитория": "icp",
-    "customer": "icp",
-    "buyer": "primary_persona",
-    "покупатель": "primary_persona",
+    "целевая аудитория": "icp",
     "persona": "primary_persona",
-    "персона": "primary_persona",
     "primary persona": "primary_persona",
-    "user": "primary_persona",
+    "персона": "primary_persona",
     "пользователь": "primary_persona",
+    "buyer": "primary_persona",
     "jtbd": "jtbd",
-    "job": "jtbd",
     "job to be done": "jtbd",
-    "работа": "jtbd",
     "задача": "jtbd",
     "target kpi": "target_kpi",
     "kpi": "target_kpi",
-    "цель": "target_kpi",
     "целевой kpi": "target_kpi",
     "метрика": "target_kpi",
     "goal metric": "target_kpi",
-    "time to first value": "time_to_first_value_minutes",
-    "ttfv": "time_to_first_value_minutes",
-    "время до ценности": "time_to_first_value_minutes",
-    "constraints": "product_constraints",
-    "product constraints": "product_constraints",
-    "ограничения": "product_constraints",
-    "sales motion": "sales_motion",
-    "модель продаж": "sales_motion",
-    "unit economics": "unit_economics",
-    "юнит экономика": "unit_economics",
-    "implementation bandwidth": "implementation_bandwidth",
-    "experiment bandwidth": "experiment_bandwidth",
-    "язык": "output_language",
-    "language": "output_language",
-    "output language": "output_language",
-}
-
-CHANNEL_LABELS = {
     "channel": "primary_channel",
     "primary channel": "primary_channel",
     "канал": "primary_channel",
     "основной канал": "primary_channel",
-    "traffic source": "traffic_source",
-    "traffic": "traffic_source",
-    "трафик": "traffic_source",
-    "источник трафика": "traffic_source",
-    "campaign": "campaign_context",
-    "campaign context": "campaign_context",
-    "message match": "message_match_notes",
-    "audience access": "audience_access",
-    "доступ к аудитории": "audience_access",
-    "volume": "volume_estimate",
-    "volume estimate": "volume_estimate",
-    "utm": "utm_or_referrer_notes",
-    "referrer": "utm_or_referrer_notes",
+    "pricing": "pricing",
+    "price": "pricing",
+    "цена": "pricing",
+    "тариф": "pricing",
+    "ttfv": "time_to_first_value_minutes",
+    "time to first value": "time_to_first_value_minutes",
+    "время до ценности": "time_to_first_value_minutes",
+    "sales motion": "sales_motion",
+    "модель продаж": "sales_motion",
+    "constraints": "product_constraints",
+    "product constraints": "product_constraints",
+    "ограничения": "product_constraints",
+    "unit economics": "unit_economics",
+    "юнит экономика": "unit_economics",
+    "implementation bandwidth": "implementation_bandwidth",
+    "experiment bandwidth": "experiment_bandwidth",
+    "language": "output_language",
+    "язык": "output_language",
 }
 
-SEGMENT_LABELS = {
-    "awareness": "awareness",
-    "осведомленность": "awareness",
-    "intent": "intent",
-    "намерение": "intent",
-    "value tier": "value_tier",
-    "уровень ценности": "value_tier",
-    "lifecycle": "lifecycle",
-    "жизненный цикл": "lifecycle",
-    "persona jtbd": "persona_jtbd",
-    "stakeholders": "stakeholders_count",
-    "stakeholders count": "stakeholders_count",
-    "стейкхолдеры": "stakeholders_count",
-    "self serve": "self_serve_possible",
-    "self-serve": "self_serve_possible",
-    "самообслуживание": "self_serve_possible",
-    "monetization": "monetization_model",
-    "monetization model": "monetization_model",
-    "монетизация": "monetization_model",
-}
+URL_PATTERN = re.compile(r"https?://[^\s),\]]+", re.IGNORECASE)
+DATE_PATTERN = re.compile(r"\b(20\d{2}-\d{2}-\d{2})\b")
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Ingest rough notes into the structured funnel workspace."
-    )
+    parser = argparse.ArgumentParser(description="Ingest normalized or rough growth funnel notes into runtime state.")
     parser.add_argument("workspace_dir", help="Workspace directory to update.")
-    parser.add_argument(
-        "--input",
-        required=True,
-        help="Input note file path, or '-' to read from stdin.",
-    )
+    parser.add_argument("--input", required=True, help="Input path or '-' for stdin.")
+    parser.add_argument("--kind", choices=["notes", "research", "competitor", "metrics"], default="notes", help="How to interpret the input.")
+    parser.add_argument("--json", action="store_true", help="Print JSON summary. Accepted for compatibility; JSON is always printed.")
     return parser.parse_args()
 
 
@@ -152,77 +102,52 @@ def normalize_label(label: str) -> str:
     return re.sub(r"\s+", " ", label.strip().lower().replace("_", " "))
 
 
-def parse_labeled_values(text: str) -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
-    intake: dict[str, str] = {}
-    channel: dict[str, str] = {}
-    segment: dict[str, str] = {}
+def parse_labeled_updates(text: str) -> dict[str, Any]:
+    updates: dict[str, Any] = {}
     for line in text.splitlines():
         if ":" not in line:
             continue
         label, value = line.split(":", 1)
-        value = value.strip()
-        if not value:
-            continue
-        normalized = normalize_label(label)
-        if normalized in INTAKE_LABELS:
-            intake[INTAKE_LABELS[normalized]] = value
-        elif normalized in CHANNEL_LABELS:
-            channel[CHANNEL_LABELS[normalized]] = value
-        elif normalized in SEGMENT_LABELS:
-            segment[SEGMENT_LABELS[normalized]] = value
-    return intake, channel, segment
+        key = LABELS.get(normalize_label(label))
+        if key and value.strip():
+            updates[key] = value.strip()
+    if re.search(r"\b(no proof yet|no proof|no proofs|no case studies|no testimonials)\b", text, re.IGNORECASE) or re.search(r"(нет доказательств|нет кейсов|нет отзывов)", text, re.IGNORECASE):
+        updates["explicit_no_proof_yet"] = True
+    return updates
 
 
-def extract_proof_rows(text: str) -> list[dict[str, str]]:
-    rows: list[dict[str, str]] = []
+def extract_proofs(text: str) -> list[str]:
+    rows: list[str] = []
     proof_terms = re.compile(
         r"\b(proof|case|testimonial|customer|benchmark|screenshot|demo|review|evidence)\b|"
-        r"(доказательств|кейс|отзыв|клиент|бенчмарк|скриншот|демо)",
+        r"(доказательств|доказательство|кейс|отзыв|клиент|бенчмарк|скриншот|демо)",
         re.IGNORECASE,
     )
-    negative_proof_terms = re.compile(
-        r"\b(no proof|no proofs|no case studies|no testimonials)\b|"
-        r"(нет доказательств|нет кейсов|нет отзывов)",
-        re.IGNORECASE,
-    )
-    for index, line in enumerate(text.splitlines(), start=1):
+    negative = re.compile(r"\b(no proof|no proofs|no case studies|no testimonials)\b|(нет доказательств|нет кейсов|нет отзывов)", re.IGNORECASE)
+    for line in text.splitlines():
         clean = line.strip(" -\t")
-        if not clean or negative_proof_terms.search(clean) or not proof_terms.search(clean):
-            continue
-        rows.append(
-            {
-                "proof_id": f"proof-{index}",
-                "type": "raw_note",
-                "claim": clean[:120],
-                "evidence": clean,
-                "source": "ingested_notes",
-                "confidence": "unknown",
-                "notes": "",
-            }
-        )
+        if clean and proof_terms.search(clean) and not negative.search(clean):
+            rows.append(clean)
     return rows
 
 
-def extract_metric_rows(text: str) -> list[dict[str, str]]:
+def extract_metrics(text: str) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
     metric_terms = re.compile(
-        r"\b(metric|conversion|ctr|cvr|activation|retention|trial|paid|signup|ttfv|revenue|cac|ltv)\b|"
-        r"(метрик|конверс|активац|удержан|триал|оплат|регистрац|выручк|доход|cac|ltv)",
+        r"\b(metric|conversion|ctr|cvr|activation|retention|trial|paid|signup|ttfv|revenue|cac|ltv|mrr|arr)\b|"
+        r"(метрик|конверс|активац|удержан|триал|оплат|регистрац|выручк|доход)",
         re.IGNORECASE,
     )
     number_pattern = re.compile(r"\d+(?:[.,]\d+)?%?")
-    for index, line in enumerate(text.splitlines(), start=1):
+    for line in text.splitlines():
         clean = line.strip(" -\t")
         if not clean or not metric_terms.search(clean) or not number_pattern.search(clean):
             continue
-        value = number_pattern.search(clean).group(0)
-        metric_name = clean.split(":", 1)[0][:80] if ":" in clean else "raw_metric"
+        value = number_pattern.search(clean)
         rows.append(
             {
-                "metric_name": metric_name,
-                "value": value,
-                "period": "",
-                "segment": "",
+                "metric_name": clean.split(":", 1)[0][:80] if ":" in clean else "raw_metric",
+                "value": value.group(0) if value else "",
                 "source": "ingested_notes",
                 "notes": clean,
             }
@@ -230,217 +155,172 @@ def extract_metric_rows(text: str) -> list[dict[str, str]]:
     return rows
 
 
-URL_PATTERN = re.compile(r"https?://[^\s),\]]+", re.IGNORECASE)
-
-
-def clean_url(url: str) -> str:
-    return url.rstrip(".,;)")
-
-
-def source_type_from_line(line: str) -> str:
+def source_type_from_line(line: str, default: str) -> str:
     lowered = line.lower()
     if "pricing" in lowered or "price" in lowered or "тариф" in lowered or "цена" in lowered:
         return "pricing"
+    if "changelog" in lowered or "release" in lowered:
+        return "changelog"
+    if "current practice" in lowered or "best practice" in lowered:
+        return "current_practice"
     if "review" in lowered or "отзыв" in lowered:
         return "review"
-    if (
-        "proof" in lowered
-        or "evidence" in lowered
-        or "case" in lowered
-        or "testimonial" in lowered
-        or "кейс" in lowered
-        or "доказатель" in lowered
-    ):
-        return "proof"
+    if "case" in lowered or "testimonial" in lowered or "proof" in lowered or "кейс" in lowered:
+        return "case_study"
     if "docs" in lowered or "documentation" in lowered or "документац" in lowered:
         return "docs"
     if "competitor" in lowered or "конкурент" in lowered:
         return "competitor"
-    return "url"
+    return default
 
 
-def extract_source_rows(text: str) -> list[dict[str, str]]:
-    rows: list[dict[str, str]] = []
-    for index, line in enumerate(text.splitlines(), start=1):
+def extract_sources(text: str, default_type: str = "other") -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for line_no, line in enumerate(text.splitlines(), start=1):
         clean = line.strip(" -\t")
         if not clean:
             continue
-        urls = [clean_url(match.group(0)) for match in URL_PATTERN.finditer(clean)]
+        urls = [match.group(0).rstrip(".,;)") for match in URL_PATTERN.finditer(clean)]
         if not urls:
             continue
+        retrieved = ""
+        date_match = DATE_PATTERN.search(clean)
+        if date_match:
+            retrieved = date_match.group(1)
         for url in urls:
-            parsed = urlparse(url)
-            domain = parsed.netloc.lower().removeprefix("www.")
-            title = clean.replace(url, "").strip(" :-|")[:120]
-            rows.append(
+            title = clean.replace(url, "").strip(" :-|")
+            source = normalize_source(
                 {
-                    "source_id": f"source-{index}-{len(rows) + 1}",
-                    "type": source_type_from_line(clean),
-                    "title": title or domain or url,
+                    "source_id": f"source-{line_no}-{len(rows) + 1}",
                     "url": url,
-                    "domain": domain,
-                    "accessed_at": "",
-                    "confidence": "unknown",
-                    "linked_claim": clean[:180],
-                    "notes": "",
-                }
+                    "title": title[:140],
+                    "retrieved_at": retrieved,
+                    "source_type": source_type_from_line(clean, default_type),
+                    "confidence": "medium",
+                    "used_in": ["research_evidence"],
+                    "notes": clean,
+                },
+                index=line_no,
+                default_type=default_type,
             )
+            rows.append(source)
     return rows
 
 
-def value_after_label(segment: str) -> str:
-    if ":" not in segment:
-        return segment.strip()
-    return segment.split(":", 1)[1].strip()
+def parse_kv_segments(segments: list[str]) -> dict[str, str]:
+    data: dict[str, str] = {}
+    for segment in segments:
+        if ":" not in segment:
+            continue
+        label, value = segment.split(":", 1)
+        key = normalize_label(label)
+        mapped = {
+            "domain": "domain",
+            "positioning": "positioning",
+            "pricing": "pricing",
+            "price": "pricing",
+            "cta": "primary_cta",
+            "primary cta": "primary_cta",
+            "onboarding": "onboarding_pattern",
+            "proof": "proof",
+            "first value": "first_value_path",
+            "first value path": "first_value_path",
+            "weakness": "observed_weaknesses",
+            "weaknesses": "observed_weaknesses",
+            "source": "source",
+            "confidence": "confidence",
+            "retrieved": "retrieved_at",
+            "retrieved at": "retrieved_at",
+            "retrieved_at": "retrieved_at",
+            "notes": "notes",
+        }.get(key)
+        if mapped:
+            data[mapped] = value.strip()
+    return data
 
 
-def extract_competitor_rows(text: str) -> list[dict[str, str]]:
+def extract_competitors(text: str) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
-    competitor_terms = re.compile(r"\bcompetitor\b|конкурент", re.IGNORECASE)
-    field_map = {
-        "domain": "domain",
-        "url": "source",
-        "source": "source",
-        "источник": "source",
-        "pricing": "pricing",
-        "price": "pricing",
-        "цена": "pricing",
-        "тариф": "pricing",
-        "positioning": "positioning",
-        "позиционирование": "positioning",
-        "cta": "primary_cta",
-        "call to action": "primary_cta",
-        "onboarding": "onboarding_pattern",
-        "онбординг": "onboarding_pattern",
-        "proof": "proof",
-        "evidence": "proof",
-        "review": "proof",
-        "first value": "first_value_path",
-        "ttfv": "first_value_path",
-        "weakness": "observed_weaknesses",
-        "слаб": "observed_weaknesses",
-        "confidence": "confidence",
-    }
-
     for line in text.splitlines():
         clean = line.strip(" -\t")
-        if not clean or not competitor_terms.search(clean):
+        if not clean or not re.match(r"^(competitor|конкурент)\s*:", clean, re.IGNORECASE):
             continue
-        row = {header: "" for header in CSV_HEADERS[COMPETITOR_FILE]}
-        row["confidence"] = "unknown"
-        content = clean
-        if ":" in clean and competitor_terms.search(clean.split(":", 1)[0]):
-            content = clean.split(":", 1)[1].strip()
-        parts = [part.strip() for part in re.split(r"\s+\|\s+|;", content) if part.strip()]
-        if parts:
-            row["competitor"] = re.sub(
-                r"^(competitor|конкурент)\s*:?\s*", "", parts[0], flags=re.IGNORECASE
-            ).strip()
-        urls = [clean_url(match.group(0)) for match in URL_PATTERN.finditer(clean)]
-        if urls:
-            row["source"] = urls[0]
-            parsed = urlparse(urls[0])
-            row["domain"] = parsed.netloc.lower().removeprefix("www.")
-            if not row["competitor"]:
-                row["competitor"] = row["domain"]
-        for part in (parts[1:] if len(parts) > 1 else parts):
-            normalized = normalize_label(part.split(":", 1)[0]) if ":" in part else ""
-            for label, field in field_map.items():
-                if normalized == label or (not normalized and label in part.lower()):
-                    value = value_after_label(part)
-                    if field == "domain":
-                        row[field] = value.replace("https://", "").replace("http://", "").strip("/")
-                    elif field == "source" and URL_PATTERN.search(value):
-                        row[field] = clean_url(URL_PATTERN.search(value).group(0))
-                    elif field != "source" or value:
-                        row[field] = value
-                    break
-        if row["competitor"] or row["domain"] or row["source"]:
-            row["notes"] = clean
-            rows.append(row)
+        _, payload = clean.split(":", 1)
+        segments = [segment.strip() for segment in payload.split("|")]
+        if not segments:
+            continue
+        row = {"competitor": segments[0]}
+        row.update(parse_kv_segments(segments[1:]))
+        date_match = DATE_PATTERN.search(clean)
+        if date_match and not row.get("retrieved_at"):
+            row["retrieved_at"] = date_match.group(1)
+        if not row.get("source"):
+            urls = URL_PATTERN.findall(clean)
+            if urls:
+                row["source"] = urls[-1].rstrip(".,;)")
+        rows.append(normalize_competitor(row))
     return rows
-
-
-def append_note(existing: str, text: str) -> str:
-    note = text.strip()
-    if not note:
-        return existing
-    if not existing:
-        return note
-    if note in existing:
-        return existing
-    return existing.rstrip() + "\n\n" + note
 
 
 def main() -> int:
     args = parse_args()
     workspace = Path(args.workspace_dir).expanduser().resolve()
     try:
-        ensure_workspace(workspace)
         text = read_input(args.input)
-        intake_updates, channel_updates, segment_updates = parse_labeled_values(text)
-        current_intake = read_flat_yaml(workspace / INTAKE_FILE)
-        if not present(current_intake.get("output_language")):
-            detected_language = detect_language(text)
-            if detected_language:
-                intake_updates["output_language"] = detected_language
+        language = detect_language(text)
+        ensure_workspace(workspace, language=language)
 
-        if re.search(
-            r"\b(no proof|no proofs|no case studies|no testimonials)\b|"
-            r"(нет доказательств|нет кейсов|нет отзывов)",
-            text,
-            re.I,
-        ):
-            intake_updates["explicit_no_proof_yet"] = True
-
-        if not intake_updates and not channel_updates and not segment_updates:
-            existing = read_flat_yaml(workspace / INTAKE_FILE).get("notes", "")
-            intake_updates["notes"] = append_note(str(existing), text)
-
-        changed = {
-            "intake": write_flat_yaml(workspace / INTAKE_FILE, intake_updates, overwrite=False)
-            if intake_updates
-            else [],
-            "channel": write_flat_yaml(workspace / CHANNEL_FILE, channel_updates, overwrite=False)
-            if channel_updates
-            else [],
-            "segment": write_flat_yaml(workspace / SEGMENT_FILE, segment_updates, overwrite=False)
-            if segment_updates
-            else [],
-            "proof_rows_added": append_csv_rows(
-                workspace / PROOF_FILE,
-                [
-                    "proof_id",
-                    "type",
-                    "claim",
-                    "evidence",
-                    "source",
-                    "confidence",
-                    "notes",
-                ],
-                extract_proof_rows(text),
-            ),
-            "metric_rows_added": append_csv_rows(
-                workspace / METRICS_FILE,
-                ["metric_name", "value", "period", "segment", "source", "notes"],
-                extract_metric_rows(text),
-            ),
-            "source_rows_added": append_jsonl_rows(
-                workspace / SOURCE_FILE,
-                extract_source_rows(text),
-            ),
-            "competitor_rows_added": append_csv_rows(
-                workspace / COMPETITOR_FILE,
-                CSV_HEADERS[COMPETITOR_FILE],
-                extract_competitor_rows(text),
-            ),
+        changed: dict[str, Any] = {
+            "intake": [],
+            "proof_assets_added": 0,
+            "metrics_added": 0,
+            "source_rows_added": 0,
+            "competitor_rows_added": 0,
         }
-        summary = validate_and_write_status(workspace)
-    except (OSError, UnicodeError) as exc:
+
+        if args.kind in {"notes", "metrics"}:
+            updates = parse_labeled_updates(text)
+            proofs = extract_proofs(text)
+            metrics = extract_metrics(text)
+            before = load_workspace(workspace)["intake"]
+            before_proofs = before.get("proof_assets") if isinstance(before.get("proof_assets"), list) else []
+            before_metrics = before.get("metrics") if isinstance(before.get("metrics"), list) else []
+            if proofs:
+                updates["proof_assets"] = proofs
+            if metrics:
+                updates["metrics"] = metrics
+            changed["intake"] = update_intake(workspace, updates)
+            after = load_workspace(workspace)["intake"]
+            after_proofs = after.get("proof_assets") if isinstance(after.get("proof_assets"), list) else []
+            after_metrics = after.get("metrics") if isinstance(after.get("metrics"), list) else []
+            changed["proof_assets_added"] = max(0, len(after_proofs) - len(before_proofs))
+            changed["metrics_added"] = max(0, len(after_metrics) - len(before_metrics))
+
+        if args.kind in {"notes", "research", "competitor"}:
+            sources = extract_sources(text, "current_practice" if args.kind == "research" else "other")
+            if sources:
+                changed["source_rows_added"] = append_jsonl_unique(
+                    runtime_path(workspace, "sources.jsonl"),
+                    sources,
+                    ["url", "title"],
+                )
+
+        if args.kind in {"notes", "competitor"}:
+            competitors = extract_competitors(text)
+            if competitors:
+                changed["competitor_rows_added"] = append_csv_unique(
+                    runtime_path(workspace, "competitors.csv"),
+                    COMPETITOR_HEADERS,
+                    competitors,
+                    ["competitor", "domain", "source"],
+                )
+
+        summary = validate_and_write(workspace)
+    except (OSError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
-    print(json.dumps({"changed": changed, "summary": summary}, indent=2, sort_keys=True))
+    print(json.dumps({"changed": changed, "summary": summary}, ensure_ascii=False, indent=2, sort_keys=True))
     return 0
 
 
