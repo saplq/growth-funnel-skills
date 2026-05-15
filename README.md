@@ -1,44 +1,58 @@
 # Growth Funnel Skills
 
-Installable Agent Skill for creating source-backed growth funnel strategy from incomplete product, SaaS, subscription, creator, marketplace, or assisted-sales context.
+`designing-growth-funnels` is an Agent Skill that helps an AI agent build a practical, source-backed growth funnel strategy from rough business context.
 
-The skill is `designing-growth-funnels`. The user asks for a marketing funnel; the agent internally creates a durable workspace, normalizes intake and research evidence, tracks missing inputs, and renders a clean `final/` package with a funnel blueprint, screen specs, tracking plan, experiment card, risks, and execution plan.
+The user asks for a funnel. The agent handles the internal workflow: it creates a workspace, normalizes the input, checks missing fields, tracks evidence, and renders a clean final report.
 
 Repository: `saplq/growth-funnel-skills`
 
-## Where It Works
+## What It Does
 
-Skills are installed into an agent host, not into a model name. The same `SKILL.md` package can be used by different hosts if they support Agent Skills or a compatible `SKILL.md` folder format.
+Use this skill when you need a growth funnel for:
 
-| Host | Status | Install path |
-| --- | --- | --- |
-| ChatGPT Skills | Supported where Skills are enabled for your workspace | Upload `designing-growth-funnels.zip` in ChatGPT: profile menu -> Skills -> New skill -> Upload from your computer. |
-| Codex | Supported | Use `npx skills add ...` or copy the skill into `~/.codex/skills/`. |
-| Claude Code | Supported by Claude Code Skills | Copy the skill into `~/.claude/skills/` for personal use or `.claude/skills/` inside a project. |
-| Claude.ai / Anthropic API | Supported when Skills are enabled for your plan or API workflow | Upload or attach the zipped skill folder using the product/API workflow available in your account. |
-| Other local agents | Compatible if they read Agent Skills / `SKILL.md` folders | Copy the skill folder into that agent's configured skills directory. |
+- SaaS, subscriptions, marketplaces, services, real estate, education, creator products, or assisted-sales businesses;
+- landing pages, Telegram/WhatsApp bots, webinars, onboarding, lead qualification, activation, paywalls, retention loops;
+- source-backed competitor/research notes;
+- tracking plans, experiment cards, and execution plans.
 
-References:
+The final output is a human-readable package in `final/`:
 
-- OpenAI: [Skills in ChatGPT](https://help.openai.com/en/articles/20001066) says Skills are available in ChatGPT plans with Skills enabled and are also supported in Codex and the API.
-- Claude Code: [Extend Claude with skills](https://code.claude.com/docs/en/skills) documents personal skills at `~/.claude/skills/<skill-name>/SKILL.md` and project skills at `.claude/skills/<skill-name>/SKILL.md`.
+- funnel blueprint;
+- audience segmentation;
+- screen / bot / webinar / onboarding specs;
+- tracking plan;
+- first experiment card;
+- risks and gaps;
+- execution plan.
+
+## What It Does Not Do
+
+- It does not browse the web inside bundled scripts.
+- It does not invent proof, private metrics, pricing, benchmarks, or customer claims.
+- It does not write to CRM, ad accounts, analytics, messengers, or external systems without explicit user approval.
+- It does not replace strategy judgment; it structures the work and shows gaps clearly.
 
 ## Install
+
+Skills are installed into an agent host, not into a model name. For example, you install it into Codex, ChatGPT Skills, Claude Code, Claude.ai, or another agent that supports `SKILL.md`.
+
+<details>
+<summary><strong>Codex</strong></summary>
+
+Recommended:
 
 ```bash
 npx skills add saplq/growth-funnel-skills --skill designing-growth-funnels
 ```
 
-If your installer supports agent targets:
+If you already installed an older version:
 
 ```bash
-npx skills add saplq/growth-funnel-skills \
-  --skill designing-growth-funnels \
-  -a codex \
-  -a claude-code
+rm -rf ~/.codex/skills/designing-growth-funnels
+npx skills add saplq/growth-funnel-skills --skill designing-growth-funnels
 ```
 
-Manual Codex install:
+Manual install:
 
 ```bash
 git clone https://github.com/saplq/growth-funnel-skills.git
@@ -46,7 +60,36 @@ mkdir -p ~/.codex/skills
 cp -R growth-funnel-skills/skills/designing-growth-funnels ~/.codex/skills/
 ```
 
-Manual Claude Code personal install:
+</details>
+
+<details>
+<summary><strong>ChatGPT Skills</strong></summary>
+
+Create a zip:
+
+```bash
+git clone https://github.com/saplq/growth-funnel-skills.git
+cd growth-funnel-skills/skills
+zip -r designing-growth-funnels.zip designing-growth-funnels
+```
+
+Upload in ChatGPT:
+
+1. Open ChatGPT.
+2. Open your profile menu.
+3. Go to `Skills`.
+4. Click `New skill`.
+5. Choose `Upload from your computer`.
+6. Upload `designing-growth-funnels.zip`.
+
+Skills availability depends on your ChatGPT plan/workspace settings.
+
+</details>
+
+<details>
+<summary><strong>Claude Code</strong></summary>
+
+Personal install:
 
 ```bash
 git clone https://github.com/saplq/growth-funnel-skills.git
@@ -54,100 +97,126 @@ mkdir -p ~/.claude/skills
 cp -R growth-funnel-skills/skills/designing-growth-funnels ~/.claude/skills/
 ```
 
-Manual project-local install for Claude Code or agents that read local skills:
+Project-local install:
 
 ```bash
+git clone https://github.com/saplq/growth-funnel-skills.git
 mkdir -p .claude/skills
 cp -R growth-funnel-skills/skills/designing-growth-funnels .claude/skills/
 ```
 
-Generic project-local install for agents that use `.agents/skills`:
+Then start Claude Code in that environment and ask for the funnel.
+
+</details>
+
+<details>
+<summary><strong>Claude.ai / Anthropic API</strong></summary>
+
+Create a zip:
 
 ```bash
-mkdir -p .agents/skills
-cp -R growth-funnel-skills/skills/designing-growth-funnels .agents/skills/
-```
-
-For ChatGPT Skills, Claude.ai, and API uploads, zip the skill folder and upload it in the product UI or API flow:
-
-```bash
+git clone https://github.com/saplq/growth-funnel-skills.git
 cd growth-funnel-skills/skills
 zip -r designing-growth-funnels.zip designing-growth-funnels
 ```
 
-## Ask Your Agent
+Upload or attach the zipped skill folder using the Skills workflow available in your Claude.ai plan or Anthropic API setup.
 
-After installing, ask your agent:
+</details>
+
+<details>
+<summary><strong>Other local agents</strong></summary>
+
+If your agent reads `.agents/skills`:
+
+```bash
+git clone https://github.com/saplq/growth-funnel-skills.git
+mkdir -p .agents/skills
+cp -R growth-funnel-skills/skills/designing-growth-funnels .agents/skills/
+```
+
+If your agent has another skills directory, copy `skills/designing-growth-funnels` into that directory.
+
+</details>
+
+## How To Use
+
+After installation, write a normal business request. You do not need to mention scripts or runtime files.
+
+Example:
 
 ```text
 Use $designing-growth-funnels.
 
-Собери маркетинговую growth funnel для моего SaaS и выдай финальный пакет на русском языке.
+Собери маркетинговую growth funnel и финальный пакет на русском языке для девелоперской компании, которая продает недвижимость украинцам за границей.
+
+Компания: NovaHabitat Development
+
+Что продаем:
+- квартиры и апартаменты в новых жилых комплексах;
+- инвестиционные юниты под аренду;
+- консультацию по покупке, оплате, налогам и сдаче в аренду.
+
+Аудитория:
+- украинцы в Европе, особенно Испания, Польша, Германия, Чехия, Португалия;
+- предприниматели, IT-специалисты, семьи с капиталом от €80k;
+- люди, которые хотят сохранить капитал, купить жилье для жизни или инвестировать в аренду.
+
+Текущая воронка:
+1. Собираем email-базу через партнеров, лид-магниты и прошлые мероприятия.
+2. Из email-базы пытаемся дособрать номера телефонов.
+3. Запускаем Meta Ads по украинцам в Европе.
+4. Ведем трафик в Telegram bot.
+5. Бот квалифицирует интерес: бюджет, страна, цель покупки, срок решения, нужен ли звонок.
+6. Дальше ведем на вебинар или консультацию с менеджером.
+7. После вебинара менеджер закрывает на подбор объекта и звонок с консультантом.
+
+Primary channel: Meta Ads + email reactivation + Telegram bot + webinars.
+Target KPI: Qualified consultation booked / Telegram bot started.
+
+Current metrics:
+- Meta lead cost: около €9-14 за старт Telegram bot.
+- Bot started to qualified lead: примерно 18%.
+- Webinar registration to attendance: примерно 32%.
+- Consultation booked after webinar: примерно 9%.
+- Sales cycle: от 2 недель до 4 месяцев.
+
+Proof:
+- уже продали 37 объектов украинским клиентам за последние 18 месяцев;
+- есть 6 видео-отзывов клиентов;
+- есть кейс семьи из Варшавы, которая купила апартамент в Испании для переезда;
+- есть кейс инвестора из Праги, который купил юнит под аренду.
+
+Constraints:
+- сайт слабый, лучше сейчас не делать сложный редизайн;
+- Telegram bot уже есть, но его можно переписать;
+- команда может подготовить один вебинар в неделю;
+- нужен запуск улучшенной воронки за 14 дней;
+- нельзя обещать гарантированную доходность;
+- важно не выглядеть как агрессивный инфобизнес.
+
+Нужно:
+- предложить сегментацию аудитории;
+- выбрать структуру funnel;
+- улучшить Telegram bot flow;
+- предложить вебинарную механику;
+- дать screen specs для landing/bot/webinar/consultation flow;
+- дать tracking plan;
+- дать experiment card для первого теста;
+- указать risks, gaps и next step.
 ```
 
-Then paste rough context in natural language:
+Expected agent behavior:
 
-```text
-Проект: SignalDesk
-Оффер: подключить Stripe и CRM, чтобы за 5 минут увидеть риски оттока и список клиентов, которых нужно вернуть на этой неделе.
-ICP: основатели и операционные руководители B2B SaaS с MRR от $20k до $300k.
-Target KPI: First Value Reached / Trial Started.
-Primary channel: LinkedIn outbound + content-led landing page.
-Pricing: $99/мес self-serve, $399/мес с assisted onboarding.
-Proof: пилотная когорта из 12 SaaS-команд нашла в среднем 18% клиентов с высоким churn risk за первую неделю.
-Metric: trial activation 27% за прошлый месяц.
-```
+1. Create a workspace.
+2. Ingest the user context.
+3. Validate whether the minimum funnel gate is complete.
+4. Render `final/index.html`.
+5. Reply with the final path, scores, blockers, and next step.
 
-The agent should handle the internal pipeline itself: create the workspace, ingest notes, validate readiness, render `final/`, and reply with the final pack path, scores, blockers, and the next smallest useful input. End users do not need to run scripts manually.
+## Minimum Input
 
-The final user-facing output lives in `final/index.html` plus paired Markdown/HTML pages. `runtime/` is only the agent's working state and audit trail.
-
-If the agent has web, file, CRM, analytics, or research tools, it should collect evidence outside the bundled scripts and then ingest normalized notes, source URLs, competitor rows, pricing, positioning, CTA, onboarding, reviews, and proof snippets into the workspace. The bundled scripts are deterministic and offline.
-
-## Workspace Layout
-
-```text
-funnel-workspace/
-├── runtime/
-│   ├── run_state.json          # scores, phase, warnings, next input
-│   ├── intake.json             # normalized product/funnel context
-│   ├── topics.json             # final report topics and statuses
-│   ├── agent_tasks.json        # optional specialist task queue
-│   ├── agent_results.jsonl     # normalized specialist/subagent outputs
-│   ├── sources.jsonl           # source ledger with provenance
-│   ├── competitors.csv         # competitor observations
-│   └── gaps.json               # missing fields, evidence gaps, blocked items
-└── final/
-    ├── index.html
-    ├── 00_index.md
-    ├── 00_index.html
-    ├── 01_status_next_steps.md
-    ├── 01_status_next_steps.html
-    ├── 02_intake_brief.md
-    ├── 02_intake_brief.html
-    ├── 03_research_evidence.md
-    ├── 03_research_evidence.html
-    ├── 04_competitor_map.md
-    ├── 04_competitor_map.html
-    ├── 05_funnel_blueprint.md
-    ├── 05_funnel_blueprint.html
-    ├── 06_screen_specs.md
-    ├── 06_screen_specs.html
-    ├── 07_tracking_plan.md
-    ├── 07_tracking_plan.html
-    ├── 08_experiment_card.md
-    ├── 08_experiment_card.html
-    ├── 09_risks_and_gaps.md
-    ├── 09_risks_and_gaps.html
-    ├── 10_execution_plan.md
-    └── 10_execution_plan.html
-```
-
-`runtime/` is for agents and debugging. `final/` is for humans and contains only `.md` and `.html`; no YAML, CSV, JSON, JSONL, traces, or separate CSS files.
-
-## Minimum Gate
-
-Final funnel recommendations are blocked until these are present:
+The skill can start with rough notes, but final recommendations are blocked until these are known:
 
 - offer;
 - ICP or primary persona;
@@ -155,54 +224,89 @@ Final funnel recommendations are blocked until these are present:
 - primary channel;
 - proof assets or explicit `no proof yet`.
 
-Missing research is advisory, not blocking. It appears as `research_readiness_score`, `evidence_gaps`, `source_count`, and `competitor_count`.
+If something is missing, the agent should ask at most 3 short questions.
+
+## How It Works Internally
+
+The skill creates a workspace with two layers:
+
+```text
+funnel-workspace/
+├── runtime/   # machine state, evidence, gaps, source registry
+└── final/     # user-facing Markdown and self-contained HTML
+```
+
+`runtime/` is for the agent and audit trail. `final/` is for the user.
+
+The bundled scripts are deterministic and offline:
+
+- Python standard library only;
+- no network calls;
+- no credential reads;
+- no execution of user-provided code;
+- writes stay inside the selected workspace path.
+
+## What The Final Pack Contains
+
+```text
+final/
+├── index.html
+├── 00_index.md / 00_index.html
+├── 01_status_next_steps.md / .html
+├── 02_intake_brief.md / .html
+├── 03_research_evidence.md / .html
+├── 04_competitor_map.md / .html
+├── 05_funnel_blueprint.md / .html
+├── 06_screen_specs.md / .html
+├── 07_tracking_plan.md / .html
+├── 08_experiment_card.md / .html
+├── 09_risks_and_gaps.md / .html
+└── 10_execution_plan.md / .html
+```
+
+## Methodology Basis
+
+This skill combines practical growth, product analytics, UX measurement, and experimentation patterns. It is not based on one single proprietary framework.
+
+Main influences:
+
+- Funnel lifecycle thinking from AARRR / Pirate Metrics: acquisition, activation, retention, referral, revenue. See Dave McClure's [Startup Metrics for Pirates](https://www.slideshare.net/dmc500hats/startup-metrics-for-pirates-nov-2012).
+- Customer motivation and positioning from Jobs To Be Done. See Harvard Business Review: [Know Your Customers' Jobs to Be Done](https://hbr.org/2016/09/know-your-customers-jobs-to-be-done).
+- Product/UX measurement from Google's HEART framework. See Google Research: [Measuring the User Experience on a Large Scale](https://research.google.com/pubs/pub36299.html).
+- Experiment design and guardrails from online controlled experimentation research. See Microsoft Research: [Online Experimentation at Microsoft](https://www.microsoft.com/en-us/research/?p=696748).
+- Skill package structure from the Agent Skills / `SKILL.md` pattern used by OpenAI and Claude Code. See [OpenAI Skills in ChatGPT](https://help.openai.com/en/articles/20001066) and [Claude Code skills](https://code.claude.com/docs/en/skills).
+
+How these ideas map into the skill:
+
+- Minimum gate: prevents generic funnels when offer, audience, KPI, channel, or proof state is missing.
+- Segmentation: separates ICP/persona, intent, geography, value tier, and buying stage.
+- Funnel blueprint: chooses an appropriate path such as diagnostic-to-consultation, webinar-to-call, trial-to-value, or assisted-sales.
+- Screen specs: tie every step to one target belief, one CTA, one primary metric, and one guardrail.
+- Tracking plan: defines events before interpreting performance.
+- Experiment card: forces hypothesis, segment, primary metric, guardrails, and decision rule.
+- Provenance: current-practice, pricing, competitor, and research claims should carry source URL and retrieval date.
 
 ## Manual CLI Usage
 
-Most users should let the agent run scripts. Use these commands for debugging or automation.
+Most users should let the agent run scripts. Use these commands only for debugging or automation.
 
 Create a workspace:
 
 ```bash
 python3 skills/designing-growth-funnels/scripts/create_workspace.py \
-  --name "Acme onboarding funnel" \
-  --out ./workspaces/acme-onboarding \
-  --language "English" \
+  --name "Acme funnel" \
+  --out ./workspaces/acme \
+  --language "Russian" \
   --json
 ```
 
-Ingest rough notes:
+Ingest notes:
 
 ```bash
 python3 skills/designing-growth-funnels/scripts/ingest_notes.py \
-  ./workspaces/acme-onboarding \
+  ./workspaces/acme \
   --input ./notes/acme.txt \
   --kind notes \
-  --json
-```
-
-Ingest research or competitor observations:
-
-```bash
-python3 skills/designing-growth-funnels/scripts/ingest_notes.py \
-  ./workspaces/acme-onboarding \
-  --input ./notes/research.txt \
-  --kind research \
-  --json
-
-python3 skills/designing-growth-funnels/scripts/ingest_notes.py \
-  ./workspaces/acme-onboarding \
-  --input ./notes/competitors.txt \
-  --kind competitor \
-  --json
-```
-
-Record a specialist/subagent result:
-
-```bash
-python3 skills/designing-growth-funnels/scripts/record_agent_result.py \
-  ./workspaces/acme-onboarding \
-  --input ./agent-result.json \
   --json
 ```
 
@@ -210,7 +314,7 @@ Validate:
 
 ```bash
 python3 skills/designing-growth-funnels/scripts/validate_workspace.py \
-  ./workspaces/acme-onboarding \
+  ./workspaces/acme \
   --json
 ```
 
@@ -218,43 +322,15 @@ Render final output:
 
 ```bash
 python3 skills/designing-growth-funnels/scripts/render_final.py \
-  ./workspaces/acme-onboarding \
+  ./workspaces/acme \
   --json
 ```
 
-Open the visual reader:
+Open the final report:
 
 ```bash
-open ./workspaces/acme-onboarding/final/index.html
+open ./workspaces/acme/final/index.html
 ```
-
-## Research and Provenance
-
-External research is collected by the agent or available tools, not by bundled scripts. Each source should include:
-
-- URL;
-- title;
-- publisher or domain;
-- retrieval date;
-- source type;
-- freshness;
-- confidence;
-- where the source is used.
-
-Pricing, changelog, and current-practice facts without retrieval dates remain evidence gaps. The skill must not fabricate proof, pricing, benchmarks, customer claims, private metrics, or current market facts.
-
-## Optional Subagent Workflow
-
-The skill supports a bounded specialist contract:
-
-- `intake`;
-- `planner`;
-- `research`;
-- `competitor`;
-- `synthesis`;
-- `compiler_reviewer`.
-
-If subagents are unavailable or not explicitly requested, the calling agent should execute the same roles sequentially. Specialists write normalized results to `runtime/agent_results.jsonl`; only the compiler renders `final/`.
 
 ## Development
 
