@@ -6,6 +6,23 @@ The skill is `designing-growth-funnels`. The user asks for a marketing funnel; t
 
 Repository: `saplq/growth-funnel-skills`
 
+## Where It Works
+
+Skills are installed into an agent host, not into a model name. The same `SKILL.md` package can be used by different hosts if they support Agent Skills or a compatible `SKILL.md` folder format.
+
+| Host | Status | Install path |
+| --- | --- | --- |
+| ChatGPT Skills | Supported where Skills are enabled for your workspace | Upload `designing-growth-funnels.zip` in ChatGPT: profile menu -> Skills -> New skill -> Upload from your computer. |
+| Codex | Supported | Use `npx skills add ...` or copy the skill into `~/.codex/skills/`. |
+| Claude Code | Supported by Claude Code Skills | Copy the skill into `~/.claude/skills/` for personal use or `.claude/skills/` inside a project. |
+| Claude.ai / Anthropic API | Supported when Skills are enabled for your plan or API workflow | Upload or attach the zipped skill folder using the product/API workflow available in your account. |
+| Other local agents | Compatible if they read Agent Skills / `SKILL.md` folders | Copy the skill folder into that agent's configured skills directory. |
+
+References:
+
+- OpenAI: [Skills in ChatGPT](https://help.openai.com/en/articles/20001066) says Skills are available in ChatGPT plans with Skills enabled and are also supported in Codex and the API.
+- Claude Code: [Extend Claude with skills](https://code.claude.com/docs/en/skills) documents personal skills at `~/.claude/skills/<skill-name>/SKILL.md` and project skills at `.claude/skills/<skill-name>/SKILL.md`.
+
 ## Install
 
 ```bash
@@ -29,14 +46,29 @@ mkdir -p ~/.codex/skills
 cp -R growth-funnel-skills/skills/designing-growth-funnels ~/.codex/skills/
 ```
 
-Manual project-local install for agents that read local skills:
+Manual Claude Code personal install:
+
+```bash
+git clone https://github.com/saplq/growth-funnel-skills.git
+mkdir -p ~/.claude/skills
+cp -R growth-funnel-skills/skills/designing-growth-funnels ~/.claude/skills/
+```
+
+Manual project-local install for Claude Code or agents that read local skills:
+
+```bash
+mkdir -p .claude/skills
+cp -R growth-funnel-skills/skills/designing-growth-funnels .claude/skills/
+```
+
+Generic project-local install for agents that use `.agents/skills`:
 
 ```bash
 mkdir -p .agents/skills
 cp -R growth-funnel-skills/skills/designing-growth-funnels .agents/skills/
 ```
 
-For ChatGPT Skills, Claude.ai, and API uploads, zip the skill folder:
+For ChatGPT Skills, Claude.ai, and API uploads, zip the skill folder and upload it in the product UI or API flow:
 
 ```bash
 cd growth-funnel-skills/skills
