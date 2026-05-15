@@ -148,62 +148,60 @@ Example:
 ```text
 Use $designing-growth-funnels.
 
-Собери маркетинговую growth funnel и финальный пакет на русском языке для девелоперской компании, которая продает недвижимость украинцам за границей.
+Build a marketing growth funnel and final report in English for this business.
 
-Компания: NovaHabitat Development
+Company: NovaHabitat Development
 
-Что продаем:
-- квартиры и апартаменты в новых жилых комплексах;
-- инвестиционные юниты под аренду;
-- консультацию по покупке, оплате, налогам и сдаче в аренду.
+Offer:
+We sell new-build apartments and investment units to Ukrainian buyers living in Europe. The service includes property selection, purchase guidance, payment process, tax basics, and rental setup support.
 
-Аудитория:
-- украинцы в Европе, особенно Испания, Польша, Германия, Чехия, Португалия;
-- предприниматели, IT-специалисты, семьи с капиталом от €80k;
-- люди, которые хотят сохранить капитал, купить жилье для жизни или инвестировать в аренду.
+Audience:
+- Ukrainians living in Europe, especially Spain, Poland, Germany, Czech Republic, and Portugal.
+- Entrepreneurs, IT specialists, and families with available capital from EUR 80k.
+- Buyers who want to preserve capital, relocate, or buy a rental property.
 
-Текущая воронка:
-1. Собираем email-базу через партнеров, лид-магниты и прошлые мероприятия.
-2. Из email-базы пытаемся дособрать номера телефонов.
-3. Запускаем Meta Ads по украинцам в Европе.
-4. Ведем трафик в Telegram bot.
-5. Бот квалифицирует интерес: бюджет, страна, цель покупки, срок решения, нужен ли звонок.
-6. Дальше ведем на вебинар или консультацию с менеджером.
-7. После вебинара менеджер закрывает на подбор объекта и звонок с консультантом.
+Current funnel:
+1. We collect an email database through partners, lead magnets, and past webinars.
+2. We try to enrich email contacts with phone numbers.
+3. We run Meta Ads targeting Ukrainians in Europe.
+4. Traffic goes to a Telegram bot.
+5. The bot qualifies budget, preferred country, buying goal, decision timing, and whether the person wants a call.
+6. Qualified leads go to a webinar or a manager consultation.
+7. After the webinar, sales managers try to book a property selection call.
 
 Primary channel: Meta Ads + email reactivation + Telegram bot + webinars.
 Target KPI: Qualified consultation booked / Telegram bot started.
 
 Current metrics:
-- Meta lead cost: около €9-14 за старт Telegram bot.
-- Bot started to qualified lead: примерно 18%.
-- Webinar registration to attendance: примерно 32%.
-- Consultation booked after webinar: примерно 9%.
-- Sales cycle: от 2 недель до 4 месяцев.
+- Meta cost per Telegram bot start: about EUR 9-14.
+- Bot started to qualified lead: about 18%.
+- Webinar registration to attendance: about 32%.
+- Consultation booked after webinar: about 9%.
+- Sales cycle: 2 weeks to 4 months.
 
 Proof:
-- уже продали 37 объектов украинским клиентам за последние 18 месяцев;
-- есть 6 видео-отзывов клиентов;
-- есть кейс семьи из Варшавы, которая купила апартамент в Испании для переезда;
-- есть кейс инвестора из Праги, который купил юнит под аренду.
+- 37 properties sold to Ukrainian clients in the last 18 months.
+- 6 client video testimonials.
+- One case study from a family in Warsaw buying an apartment in Spain for relocation.
+- One case study from a Prague-based investor buying a rental unit.
 
 Constraints:
-- сайт слабый, лучше сейчас не делать сложный редизайн;
-- Telegram bot уже есть, но его можно переписать;
-- команда может подготовить один вебинар в неделю;
-- нужен запуск улучшенной воронки за 14 дней;
-- нельзя обещать гарантированную доходность;
-- важно не выглядеть как агрессивный инфобизнес.
+- The current website is weak, so avoid a heavy website redesign for now.
+- Telegram bot already exists and can be rewritten.
+- The team can prepare one webinar per week.
+- Improved funnel should launch in 14 days.
+- We cannot promise guaranteed investment returns.
+- The tone must feel premium and trustworthy, not aggressive or infobusiness-like.
 
-Нужно:
-- предложить сегментацию аудитории;
-- выбрать структуру funnel;
-- улучшить Telegram bot flow;
-- предложить вебинарную механику;
-- дать screen specs для landing/bot/webinar/consultation flow;
-- дать tracking plan;
-- дать experiment card для первого теста;
-- указать risks, gaps и next step.
+Please produce:
+- audience segmentation;
+- funnel structure;
+- improved Telegram bot flow;
+- webinar mechanism;
+- screen specs for landing / bot / webinar / consultation flow;
+- tracking plan;
+- first experiment card;
+- risks, gaps, and next step.
 ```
 
 Expected agent behavior:
@@ -213,6 +211,125 @@ Expected agent behavior:
 3. Validate whether the minimum funnel gate is complete.
 4. Render `final/index.html`.
 5. Reply with the final path, scores, blockers, and next step.
+
+## Example Prompts By Niche
+
+Use these as starting points. Replace the details with your own business.
+
+<details>
+<summary><strong>Real estate developer / property sales</strong></summary>
+
+```text
+Use $designing-growth-funnels.
+
+Build a marketing growth funnel and final report in English for a real estate developer selling new-build apartments to Ukrainian buyers living in Europe.
+
+Company: NovaHabitat Development
+Offer: property selection, purchase guidance, payment process, tax basics, and rental setup support for buyers interested in Spain, Maldives, and Zanzibar.
+Audience: Ukrainian entrepreneurs, IT specialists, and families living in Europe with available capital from EUR 80k.
+Primary channel: Meta Ads + email reactivation + Telegram bot + webinars.
+Target KPI: Qualified consultation booked / Telegram bot started.
+Current funnel: email database -> phone enrichment -> Meta Ads -> Telegram bot -> webinar or manager consultation -> property selection call.
+Current metrics: EUR 9-14 per bot start, 18% bot start to qualified lead, 32% webinar attendance, 9% consultation booked after webinar.
+Proof: 37 properties sold in 18 months, 6 video testimonials, two client case studies.
+Constraints: launch improved funnel in 14 days, avoid heavy website redesign, no guaranteed-return claims, premium trustworthy tone.
+
+Create segmentation, funnel structure, Telegram bot flow, webinar mechanism, screen specs, tracking plan, first experiment card, risks, gaps, and next step.
+```
+
+</details>
+
+<details>
+<summary><strong>SaaS / product-led growth</strong></summary>
+
+```text
+Use $designing-growth-funnels.
+
+Build a source-backed growth funnel and final report in English for a B2B SaaS product.
+
+Company: SignalDesk
+Offer: connect Stripe and CRM to see churn risks and a list of accounts to win back this week.
+Audience: B2B SaaS founders and operators with MRR from USD 20k to USD 300k.
+Primary channel: LinkedIn outbound + content-led landing page.
+Target KPI: First Value Reached / Trial Started.
+Current funnel: content post -> landing page -> trial signup -> Stripe/CRM connection -> churn risk dashboard -> upgrade.
+Current metrics: landing to signup 4.8%, trial activation 27%, time to first value about 5 minutes.
+Proof: pilot cohort of 12 SaaS teams found an average of 18% high-risk accounts in week one.
+Constraints: one frontend engineer, one growth marketer, first experiment should launch in 10 days.
+
+Create segmentation, funnel blueprint, onboarding screens, tracking plan, first experiment card, risks, gaps, and execution plan.
+```
+
+</details>
+
+<details>
+<summary><strong>Telegram bot / webinar funnel</strong></summary>
+
+```text
+Use $designing-growth-funnels.
+
+Build a Telegram bot and webinar growth funnel in English.
+
+Business: expert-led education company selling a high-ticket online program.
+Offer: 8-week program helping Ukrainian entrepreneurs in Europe systemize sales and launch Meta Ads.
+Audience: Ukrainian small business owners in Poland, Germany, Spain, and Czech Republic.
+Primary channel: Meta Ads to Telegram bot, email reactivation, weekly webinar.
+Target KPI: Paid strategy call booked / Telegram bot started.
+Current funnel: ad -> Telegram bot quiz -> webinar registration -> webinar attendance -> strategy call -> payment.
+Current metrics: EUR 6 per bot start, 22% bot completion, 38% webinar attendance, 7% call booking after webinar.
+Proof: 120 graduates, 14 video testimonials, 3 public case studies.
+Constraints: avoid exaggerated income claims, keep compliance-safe ad messaging, launch in 7 days.
+
+Create audience segments, bot questions, webinar structure, CTA sequence, screen specs, tracking plan, first experiment, risks, and next step.
+```
+
+</details>
+
+<details>
+<summary><strong>Marketplace</strong></summary>
+
+```text
+Use $designing-growth-funnels.
+
+Build a growth funnel and final report in English for a two-sided marketplace.
+
+Company: CareMatch
+Offer: match families with verified home-care providers within 48 hours.
+Audience: adult children looking for care for parents; providers are licensed caregivers and small agencies.
+Primary channel: Google Search + local partnerships + retargeting.
+Target KPI: Matched consultation booked / qualified request submitted.
+Current funnel: search ad -> landing page -> care request form -> provider shortlist -> consultation call.
+Current metrics: landing conversion 6%, qualified request rate 41%, provider response rate 62%.
+Proof: 420 completed matches, average provider rating 4.7/5, two local partner endorsements.
+Constraints: trust and safety are critical, avoid medical claims, support team can manually review 50 requests per week.
+
+Create demand-side and supply-side segmentation, funnel blueprint, screen specs, tracking plan, first experiment, risks, and execution plan.
+```
+
+</details>
+
+<details>
+<summary><strong>Local service business</strong></summary>
+
+```text
+Use $designing-growth-funnels.
+
+Build a practical growth funnel and final report in English for a local service business.
+
+Business: premium dental clinic in Barcelona.
+Offer: implant consultation and treatment planning for expats.
+Audience: English-speaking and Ukrainian-speaking expats aged 35-65 in Barcelona and nearby areas.
+Primary channel: Google Search + Meta retargeting + WhatsApp follow-up.
+Target KPI: Consultation booked / qualified lead submitted.
+Current funnel: Google ad -> landing page -> WhatsApp or form -> coordinator call -> clinic consultation.
+Current metrics: EUR 28 per lead, 45% lead to coordinator call, 31% coordinator call to clinic consultation.
+Proof: 12 years in business, 900+ implant cases, doctor credentials, patient reviews.
+Constraints: healthcare compliance, no unrealistic outcome promises, clinic has limited consultation slots.
+
+Create segmentation, landing/WhatsApp flow, trust proof plan, tracking plan, first experiment, risks, and next step.
+```
+
+</details>
 
 ## Minimum Input
 
