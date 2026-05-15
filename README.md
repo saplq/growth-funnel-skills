@@ -6,6 +6,27 @@ The user asks for a funnel. The agent handles the internal workflow: it creates 
 
 Repository: `saplq/growth-funnel-skills`
 
+## Core Idea
+
+This skill is built around one practical thesis: repeatable growth does not come from "creative marketing genius"; it comes from a system that rejects weak cases early, turns the work into measurable KPI contracts, gives users fast first value, instruments each step, and improves through experiments.
+
+It does **not** promise 90%+ success for every product, audience, and traffic source. That would be dishonest. Instead, it is designed to make suitable projects more predictable by forcing this operating model:
+
+```text
+Fit Gate -> KPI Contract -> Journey Map -> First Value -> Instrumentation -> Experiment Loop -> Retention Loop -> Postmortem Library
+```
+
+In practice, the skill asks:
+
+- Is this project ready for growth, or should it only get a diagnosis / strategy sprint?
+- What one KPI defines success?
+- What belief must change at each step of the funnel?
+- Where does the user receive first value before or immediately after conversion?
+- Which events prove that users moved forward?
+- What is the first meaningful experiment?
+- How does the product or funnel create a reason to return?
+- What did the last result teach us for the next funnel?
+
 ## What It Does
 
 Use this skill when you need a growth funnel for:
@@ -456,16 +477,22 @@ Main influences:
 - Customer motivation and positioning from Jobs To Be Done. See Harvard Business Review: [Know Your Customers' Jobs to Be Done](https://hbr.org/2016/09/know-your-customers-jobs-to-be-done).
 - Product/UX measurement from Google's HEART framework. See Google Research: [Measuring the User Experience on a Large Scale](https://research.google.com/pubs/pub36299.html).
 - Experiment design and guardrails from online controlled experimentation research. See Microsoft Research: [Online Experimentation at Microsoft](https://www.microsoft.com/en-us/research/?p=696748).
+- Iterative usability testing from Nielsen Norman Group's small-batch testing guidance. See [Why You Only Need to Test with 5 Users](https://www.nngroup.com/articles/why-you-only-need-to-test-with-5-users/).
+- Compounding growth systems from growth-loop thinking. See Reforge: [The One Growth Metric that Moves Acquisition, Monetization, and Virality](https://www.reforge.com/blog/growth-metric-acquisition-monetization-virality).
 - Skill package structure from the Agent Skills / `SKILL.md` pattern used by OpenAI and Claude Code. See [OpenAI Skills in ChatGPT](https://help.openai.com/en/articles/20001066) and [Claude Code skills](https://code.claude.com/docs/en/skills).
 
 How these ideas map into the skill:
 
 - Minimum gate: prevents generic funnels when offer, audience, KPI, channel, or proof state is missing.
+- KPI contract: replaces vague goals like "more clients" with one measurable success target.
 - Segmentation: separates ICP/persona, intent, geography, value tier, and buying stage.
 - Funnel blueprint: chooses an appropriate path such as diagnostic-to-consultation, webinar-to-call, trial-to-value, or assisted-sales.
-- Screen specs: tie every step to one target belief, one CTA, one primary metric, and one guardrail.
+- Belief shifts and screen specs: tie every step to one target belief, one CTA, one primary metric, and one guardrail.
+- First value: pushes the funnel to show a useful preview or result before asking for deeper commitment.
 - Tracking plan: defines events before interpreting performance.
 - Experiment card: forces hypothesis, segment, primary metric, guardrails, and decision rule.
+- Retention loop: makes the funnel continue after payment, signup, or consultation.
+- Postmortem habit: turns failed tests into reusable rules and stronger patterns.
 - Provenance: current-practice, pricing, competitor, and research claims should carry source URL and retrieval date.
 
 ## Manual CLI Usage

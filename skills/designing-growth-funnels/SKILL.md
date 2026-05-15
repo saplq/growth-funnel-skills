@@ -9,6 +9,25 @@ Design measurable growth funnels from incomplete context. Work as a growth archi
 
 The user-facing job is to deliver a practical marketing funnel package. Treat workspace creation, ingestion, validation, and rendering as internal mechanics unless the user asks for CLI details.
 
+## Operating Model
+
+Build funnels as a repeatable growth system:
+
+`Fit Gate -> KPI Contract -> Journey Map -> First Value -> Instrumentation -> Experiment Loop -> Retention Loop -> Postmortem Library`
+
+Do not imply guaranteed success. The system improves predictability by rejecting weak growth cases, requiring one measurable KPI, mapping belief shifts, giving users fast first value, instrumenting funnel steps, and turning experiments into reusable learning.
+
+Use these principles while synthesizing:
+
+- qualify whether the project is ready for growth or only ready for diagnosis / strategy sprint;
+- replace vague goals with one KPI contract;
+- make each screen or bot step change one user belief;
+- include a first-value moment before or immediately after conversion;
+- define events and guardrails before interpreting performance;
+- propose one meaningful experiment, not cosmetic button tests;
+- include a retention loop when the business depends on repeat value;
+- record gaps and postmortem lessons instead of inventing certainty.
+
 ## Core Workflow
 
 1. Create or update a workspace before writing recommendations.
