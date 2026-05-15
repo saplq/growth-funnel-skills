@@ -36,15 +36,14 @@ Use this skill when you need a growth funnel for:
 - source-backed competitor/research notes;
 - tracking plans, experiment cards, and execution plans.
 
-The final output is a human-readable package in `final/`:
+The final output is a human-readable decision package in `final/`:
 
-- funnel blueprint;
-- audience segmentation;
-- screen / bot / webinar / onboarding specs;
-- tracking plan;
-- first experiment card;
-- risks and gaps;
-- execution plan.
+- decision summary and first action;
+- audience segmentation and jobs;
+- evidence-backed or assumption-backed recommendations;
+- funnel map and screen / bot / webinar / onboarding playbook;
+- tracking plan and first experiment;
+- risks, gaps, and execution plan.
 
 ## What It Does Not Do
 
@@ -203,8 +202,9 @@ Expected agent behavior:
 1. Create a workspace.
 2. Ingest the user context.
 3. Validate whether the minimum funnel gate is complete.
-4. Render `final/index.html`.
-5. Reply with the final path, scores, blockers, and next step.
+4. Compile `runtime/insights.json`.
+5. Render `final/index.html`.
+6. Reply with the final path, scores, blockers, and next step.
 
 ## Example Prompts By Niche
 
@@ -435,7 +435,7 @@ The skill creates a workspace with two layers:
 
 ```text
 funnel-workspace/
-├── runtime/   # machine state, evidence, gaps, source registry
+├── runtime/   # machine state, evidence, gaps, source registry, insights
 └── final/     # user-facing Markdown and self-contained HTML
 ```
 
@@ -454,17 +454,17 @@ The bundled scripts are deterministic and offline:
 ```text
 final/
 ├── index.html
-├── 00_index.md / 00_index.html
-├── 01_status_next_steps.md / .html
-├── 02_intake_brief.md / .html
-├── 03_research_evidence.md / .html
-├── 04_competitor_map.md / .html
-├── 05_funnel_blueprint.md / .html
-├── 06_screen_specs.md / .html
-├── 07_tracking_plan.md / .html
-├── 08_experiment_card.md / .html
-├── 09_risks_and_gaps.md / .html
-└── 10_execution_plan.md / .html
+├── 00_index.md / 00_index.html              # start here
+├── 01_status_next_steps.md / .html          # decision summary
+├── 02_intake_brief.md / .html               # segments and jobs
+├── 03_research_evidence.md / .html          # evidence and assumptions
+├── 04_competitor_map.md / .html             # competitive patterns
+├── 05_funnel_blueprint.md / .html           # funnel map
+├── 06_screen_specs.md / .html               # screen playbook
+├── 07_tracking_plan.md / .html              # tracking and KPIs
+├── 08_experiment_card.md / .html            # next experiment
+├── 09_risks_and_gaps.md / .html             # risks and gaps
+└── 10_execution_plan.md / .html             # execution plan
 ```
 
 ## Methodology Basis

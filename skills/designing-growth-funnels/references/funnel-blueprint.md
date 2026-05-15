@@ -33,7 +33,8 @@ Each screen should define:
 - guardrail;
 - proof needed;
 - blocked assumptions.
+- support evidence or assumption id.
 
 ## Recommendation Rule
 
-Keep each stage tied to one target belief, one CTA, one primary metric, and one guardrail. If the minimum gate is missing, mark recommendations blocked instead of filling gaps with generic copy.
+Keep each stage tied to one target belief, one CTA, one primary metric, one guardrail, and one support reference. If the minimum gate is missing, mark recommendations blocked instead of filling gaps with generic copy.

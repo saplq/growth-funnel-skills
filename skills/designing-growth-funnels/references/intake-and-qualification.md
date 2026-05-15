@@ -42,7 +42,7 @@ Default decision:
 
 ## Intake Behavior
 
-Ask at most 3 questions. Choose missing fields by impact:
+Before the minimum gate is complete, ask at most 3 questions. Choose missing fields by impact:
 
 1. target KPI;
 2. offer;
@@ -50,4 +50,23 @@ Ask at most 3 questions. Choose missing fields by impact:
 4. primary channel;
 5. proof/no-proof state.
 
+After the minimum gate is complete, ask at most 2 clarify questions. They should be topic-specific and improve recommendation quality, not repeat the gate. Prioritize:
+
+- priority segment for the next 14 days;
+- current weak screen, bot step, email, or webinar step;
+- main objection before the target action;
+- first-value moment and time to first value;
+- proof gap or strongest proof asset;
+- owner and launch date for the first experiment.
+
 Prefer rough input over waiting for perfect input. Mark assumptions clearly.
+
+## Readiness
+
+`minimum_gate_satisfied` means the agent has enough input to draft a package. It does not mean recommendations are ready.
+
+Recommendations are ready only when:
+
+- the minimum gate is satisfied;
+- research readiness is at least 60;
+- contradictions are resolved.

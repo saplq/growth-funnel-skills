@@ -5,6 +5,7 @@
       "input": "",
       "expected": [
         "runtime files are created immediately",
+        "runtime/insights.json is created",
         "minimum gate is not satisfied",
         "next_best_input has no more than 3 questions",
         "final pack can render blocked pages without raw runtime leakage"
@@ -24,19 +25,24 @@
       "input": "Offer: weekly conversion audits\nICP: SaaS founders\nTarget KPI: trial activation\nChannel: LinkedIn content\nNo proof yet",
       "expected": [
         "minimum gate is satisfied",
+        "recommendations_ready remains false until research readiness reaches ready state",
+        "post-gate next_best_input has no more than 2 topic-specific clarify questions",
         "qualification score is lower than with proof",
         "no proof claims are fabricated",
-        "final pack renders clean Markdown and HTML"
+        "final pack renders clean Markdown and HTML",
+        "recommendations cite evidence refs or explicit assumptions"
       ]
     },
     {
       "name": "research_with_competitors",
-      "input": "Offer: connect Stripe and see churn risks in 3 minutes\nICP: SaaS operators\nTarget KPI: first value reached\nChannel: search\nProof: customer case showed 18% churn recovery\nSource: Pricing https://example.com/pricing retrieved 2026-05-15\nCompetitor: RivalOne | domain: rivalone.com | pricing: $29/mo | CTA: Start free | onboarding: connect Stripe | source: https://rivalone.com/pricing | retrieved: 2026-05-15",
+      "input": "Offer: connect Stripe and see churn risks in 3 minutes\nICP: SaaS operators\nTarget KPI: first value reached\nChannel: search\nProof: customer case showed 18% churn recovery\nCompetitor: RivalOne | domain: rivalone.com | pricing: $29/mo | CTA: Start free | onboarding: connect Stripe | source: https://rivalone.com/pricing | retrieved: 2026-05-15\nCompetitor: RivalTwo | domain: rivaltwo.com | pricing: $49/mo | CTA: Book demo | onboarding: import billing data | source: https://rivaltwo.com/pricing | retrieved: 2026-05-15\nCompetitor: RivalThree | domain: rivalthree.com | pricing: custom | CTA: View demo | onboarding: sample workspace | source: https://rivalthree.com/pricing | retrieved: 2026-05-15",
       "expected": [
         "source registry includes URL, publisher, retrieval date, type, confidence, and used_in",
         "competitor map includes pricing, CTA, onboarding, and source",
-        "research gaps remain if fewer than 3 competitors exist",
-        "final report separates evidence from recommendations"
+        "phase is ready when research readiness is at least 60 and there are no contradictions",
+        "insights include at least 3 actionable screen-level recommendations",
+        "final report separates evidence from recommendations",
+        "HTML provides visual decision aids beyond plain Markdown styling"
       ]
     },
     {
@@ -44,8 +50,10 @@
       "input": "Оффер: аудит онбординга для SaaS\nICP: основатели SaaS\nЦелевой KPI: активация триала\nКанал: LinkedIn content\nНет доказательств",
       "expected": [
         "runtime output_language is Russian",
+        "default English workspaces switch to Russian after Russian ingest",
         "final index and status pages render Russian headings",
-        "final HTML contains inline styles and navigation"
+        "final HTML contains inline styles and navigation",
+        "Russian output has no leftover English UI strings like Intake brief, Previous, Next, or Auto-collect"
       ]
     }
   ]

@@ -8,7 +8,7 @@ Use this when splitting work across specialists or recording specialist outputs.
 - `planner`: create topics and bounded tasks.
 - `research`: gather current sources and practice patterns.
 - `competitor`: gather competitor observations.
-- `synthesis`: draft recommendations from normalized state.
+- `synthesis`: draft recommendations from normalized state and compile decision-grade insights into `runtime/insights.json`.
 - `compiler_reviewer`: render and check the final pack.
 
 ## Result Contract
@@ -42,3 +42,12 @@ python3 scripts/record_agent_result.py "<workspace-dir>" --input "<result.json>"
 - Only the compiler writes `final/`.
 - Subagents should return summaries and source rows, not raw browsing transcripts.
 - Sensitive external writes require user approval.
+
+## Synthesis Contract
+
+Before rendering, the synthesis role must ensure:
+
+- each segment, screen, and experiment has `support`;
+- `support` points to an evidence ref or explicit assumption;
+- blocked or weak evidence is visible to the user;
+- the first action is concrete enough for a marketer to execute.

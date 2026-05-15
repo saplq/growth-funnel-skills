@@ -43,6 +43,7 @@ def assert_runtime_contract(workspace: Path) -> None:
         "sources.jsonl",
         "competitors.csv",
         "gaps.json",
+        "insights.json",
     ]
     for filename in expected:
         path = runtime / filename
@@ -165,13 +166,29 @@ class WorkspaceScriptsTest(unittest.TestCase):
                     "TTFV: 3\n"
                     "Proof: customer case showed 18% churn recovery\n"
                     "Metric: trial activation 22% last month\n"
+                    "Competitor: RivalOne | domain: rivalone.com | pricing: $29/mo | "
+                    "positioning: churn analytics | CTA: Start free | onboarding: connect Stripe | "
+                    "source: https://rivalone.com/pricing | retrieved: 2026-05-15\n"
+                    "Competitor: RivalTwo | domain: rivaltwo.com | pricing: $49/mo | "
+                    "positioning: revenue recovery | CTA: Book demo | onboarding: import billing data | "
+                    "source: https://rivaltwo.com/pricing | retrieved: 2026-05-15\n"
+                    "Competitor: RivalThree | domain: rivalthree.com | pricing: custom | "
+                    "positioning: retention workflows | CTA: View demo | onboarding: sample workspace | "
+                    "source: https://rivalthree.com/pricing | retrieved: 2026-05-15\n"
                 ),
             )
             result = run_script("render_final.py", str(workspace), "--json")
 
             self.assertTrue(result["minimum_gate_satisfied"])
+            self.assertEqual(result["phase"], "ready")
+            self.assertTrue(result["recommendations_ready"])
             self.assertTrue(result["rendered"])
             assert_final_pack(workspace)
+            insights = json.loads((workspace / "runtime" / "insights.json").read_text(encoding="utf-8"))
+            self.assertIn("decision_summary", insights)
+            self.assertGreaterEqual(len(insights["screens"]), 3)
+            for screen in insights["screens"]:
+                self.assertTrue(screen.get("support"))
             tracking = (workspace / "final" / "07_tracking_plan.md").read_text(encoding="utf-8")
             self.assertIn("First Value Reached", tracking)
             blueprint = (workspace / "final" / "05_funnel_blueprint.md").read_text(encoding="utf-8")
@@ -198,6 +215,10 @@ class WorkspaceScriptsTest(unittest.TestCase):
             result = run_script("render_final.py", str(workspace), "--json")
 
             self.assertTrue(result["minimum_gate_satisfied"])
+            self.assertEqual(result["phase"], "research")
+            self.assertFalse(result["recommendations_ready"])
+            self.assertLessEqual(len(result["next_best_input"]), 2)
+            self.assertNotIn("Collect 3 current sources and 3 competitors", " ".join(result["next_best_input"]))
             self.assertLess(result["qualification_score"], 70)
             assert_final_pack(workspace)
             experiment = (workspace / "final" / "08_experiment_card.md").read_text(encoding="utf-8")
@@ -225,6 +246,7 @@ class WorkspaceScriptsTest(unittest.TestCase):
             summary = run_script("validate_workspace.py", str(workspace), "--json")
 
             self.assertTrue(summary["contradictions"])
+            self.assertFalse(summary["recommendations_ready"])
             self.assertIn("explicit_no_proof_yet", summary["contradictions"][0])
 
     def test_source_and_competitor_ingestion(self) -> None:
@@ -390,9 +412,11 @@ class WorkspaceScriptsTest(unittest.TestCase):
             self.assertEqual(result["output_language"], "Russian")
             assert_final_pack(workspace)
             final_index = (workspace / "final" / "00_index.md").read_text(encoding="utf-8")
-            self.assertIn("Итоговый пакет", final_index)
+            self.assertIn("С чего начать", final_index)
+            self.assertIn("Главное решение", final_index)
             status = (workspace / "final" / "01_status_next_steps.md").read_text(encoding="utf-8")
-            self.assertIn("Оценка полноты", status)
+            self.assertIn("Резюме решения", status)
+            self.assertIn("Готовность ресерча", status)
             html = (workspace / "final" / "index.html").read_text(encoding="utf-8")
             self.assertIn("<title>Оглавление</title>", html)
             self.assertIn('<html lang="ru">', html)
@@ -400,6 +424,39 @@ class WorkspaceScriptsTest(unittest.TestCase):
             self.assertIn("Начать", html)
             page_html = (workspace / "final" / "00_index.html").read_text(encoding="utf-8")
             self.assertIn('<html lang="ru">', page_html)
+            for forbidden in ["Intake brief", "Research и evidence", "Previous", "Next", "Auto-collect"]:
+                self.assertNotIn(forbidden, final_index + status + html + page_html)
+
+    def test_russian_ingest_updates_default_english_workspace_language(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "russian-default"
+            created = run_script(
+                "create_workspace.py",
+                "--name",
+                "Russian default",
+                "--out",
+                str(workspace),
+                "--json",
+            )
+            self.assertEqual(created["output_language"], "English")
+            result = run_script(
+                "ingest_notes.py",
+                str(workspace),
+                "--input",
+                "-",
+                "--json",
+                input_text=(
+                    "Оффер: аудит Telegram-бота\n"
+                    "ICP: владельцы онлайн-школ\n"
+                    "Целевой KPI: завершение брифа\n"
+                    "Канал: Telegram\n"
+                    "Нет доказательств\n"
+                ),
+            )
+
+            self.assertEqual(result["summary"]["output_language"], "Russian")
+            intake = json.loads((workspace / "runtime" / "intake.json").read_text(encoding="utf-8"))
+            self.assertEqual(intake["output_language"], "Russian")
 
     def test_create_is_idempotent_and_does_not_overwrite_intake(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

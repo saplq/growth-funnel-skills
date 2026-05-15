@@ -7,7 +7,7 @@ description: Create deep-research growth funnel workspaces from incomplete SaaS,
 
 Design measurable growth funnels from incomplete context. Work as a growth architect and research orchestrator, not as a generic copywriter.
 
-The user-facing job is to deliver a practical marketing funnel package. Treat workspace creation, ingestion, validation, and rendering as internal mechanics unless the user asks for CLI details.
+The user-facing job is to deliver a practical marketing funnel package that a marketer can act on. Treat workspace creation, ingestion, validation, insight compilation, and rendering as internal mechanics unless the user asks for CLI details.
 
 ## Operating Model
 
@@ -34,8 +34,9 @@ Use these principles while synthesizing:
 2. Infer the user's conversation language and pass it as `--language`.
 3. Ingest pasted notes, documents, metrics, research, competitor observations, or specialist outputs into `runtime/`.
 4. Validate after every meaningful update.
-5. Render `final/` only after validation, even if some recommendations stay blocked.
-6. Reply with the `final/index.html` path, scores, blockers, and the next smallest useful input. Mention changed runtime files only when useful for debugging.
+5. Compile `runtime/insights.json` before rendering. Every recommendation must point to evidence or an explicit assumption.
+6. Render `final/` only after validation, even if some recommendations stay blocked.
+7. Reply with the `final/index.html` path, scores, blockers, and the next smallest useful input. Mention changed runtime files only when useful for debugging.
 
 Run bundled scripts yourself when filesystem access exists:
 
@@ -55,6 +56,8 @@ The workspace has two layers:
 
 Do not put YAML, CSV, JSON, JSONL, traces, or separate CSS files in `final/`.
 
+`runtime/insights.json` is the synthesis layer. It should contain decision summary, segments, screen recommendations, experiments, risks, evidence refs, assumptions, and confidence. Markdown is the canonical readable report layer; HTML is a visual decision layer with navigation, cards, badges, tables, and risk signals.
+
 ## Minimum Gate
 
 Do not present final funnel recommendations as ready until these are present:
@@ -67,11 +70,17 @@ Do not present final funnel recommendations as ready until these are present:
 
 If the gate is incomplete, create the workspace, mark blocked items, and ask at most 3 short questions.
 
+After the gate is complete, ask at most 2 topic-specific clarify questions only when they can materially improve the decision. Prefer questions about priority segment, current weak screen or bot step, main objection, first-value moment, proof gap, or experiment owner.
+
+Recommendations are only ready when the minimum gate is satisfied, research readiness is sufficient, and contradictions are resolved. A polished final pack may still be a draft; do not describe it as ready when `phase` is not `ready`.
+
 ## Research Rules
 
 Bundled scripts never browse the web. The agent collects current sources with available web, file, MCP, CRM, analytics, or connector tools, then ingests normalized notes through `ingest_notes.py` or `record_agent_result.py`.
 
 Every external source should include URL, title, publisher/domain, retrieval date, type, freshness, confidence, and where it was used. For pricing, changelog, and current-practice claims, missing retrieval dates must remain an evidence gap.
+
+Do not let source formatting substitute for insight quality. The final package should expose what to do first, why it matters, what screen or step changes, which metric proves progress, and whether the claim is evidence-backed or assumption-backed.
 
 ## Optional Orchestration
 

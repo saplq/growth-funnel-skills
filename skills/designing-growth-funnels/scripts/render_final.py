@@ -20,8 +20,9 @@ from workspace_lib import (
     is_russian,
     load_workspace,
     minimum_gate_satisfied,
-    numeric_value,
     output_language,
+    select_funnel_skeleton,
+    ui_text,
     validate_and_write,
     write_final_page,
     write_text_file,
@@ -35,18 +36,25 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def dash(value: Any) -> str:
+def dash(value: Any, ru: bool = False) -> str:
     text = "" if value is None else str(value).strip()
     text = re.sub(r"\s+", " ", text)
-    return text or "-"
+    return text or ("не указано" if ru else "-")
 
 
-def table_cell(value: Any) -> str:
-    return dash(value).replace("|", "/")
+def table_cell(value: Any, ru: bool = False) -> str:
+    return dash(value, ru).replace("|", "/")
 
 
 def yes_no(value: bool, ru: bool) -> str:
     return ("да" if value else "нет") if ru else ("yes" if value else "no")
+
+
+def confidence_label(value: str, ru: bool) -> str:
+    normalized = str(value or "").lower()
+    if ru:
+        return {"high": "высокая", "medium": "средняя", "low": "низкая"}.get(normalized, "неизвестная")
+    return normalized or "unknown"
 
 
 def nav_titles(data: dict[str, Any]) -> list[tuple[str, str]]:
@@ -72,68 +80,61 @@ def nav_titles(data: dict[str, Any]) -> list[tuple[str, str]]:
     return [(slug, topic_titles.get(mapping.get(slug, ""), title)) for slug, title in FINAL_PAGES]
 
 
-def select_skeleton(data: dict[str, Any]) -> tuple[str, str]:
-    intake = data["intake"]
-    ttfv = numeric_value(intake.get("time_to_first_value_minutes"))
-    text = " ".join(
-        str(intake.get(field, ""))
-        for field in ["offer", "sales_motion", "primary_channel", "pricing", "product_constraints"]
-    ).lower()
-    if "enterprise" in text or "sales" in text or (ttfv is not None and ttfv > 10):
-        return "demo_led", "High value or longer setup needs assisted trust-building before activation."
-    if "audit" in text or "diagnos" in text or "assessment" in text or "аудит" in text:
-        return "diagnostic_to_roadmap", "The funnel should create first value through diagnosis and a prioritized path."
-    if ttfv is not None and ttfv <= 5:
-        return "trial_to_value", "Fast first value supports a product-led trial-to-value path."
-    return "diagnostic_to_roadmap", "Default to diagnosis-first until first-value timing is proven."
+def insights(data: dict[str, Any]) -> dict[str, Any]:
+    item = data.get("insights")
+    return item if isinstance(item, dict) else {}
 
 
 def render_index(data: dict[str, Any]) -> str:
     ru = is_russian(data)
     state = data["state"]
+    item = insights(data)
+    summary = item.get("decision_summary", {}) if isinstance(item.get("decision_summary"), dict) else {}
     if ru:
-        return f"""# Итоговый пакет
+        return f"""# С чего начать
 
-Этот пакет собран из `runtime/` и предназначен для чтения человеком.
+> **Что делать первым:** {dash(summary.get('first_action'), ru)}
 
-## Читать по порядку
+## Главное решение
 
-- Статус и следующие шаги
-- Intake brief
-- Research и evidence
-- Карта конкурентов
-- Blueprint воронки
-- Спецификация экранов
-- План трекинга
-- Карточка эксперимента
-- Риски и gaps
-- План исполнения
+- Статус: {dash(summary.get('status'), ru)}
+- Рекомендация: {dash(summary.get('recommendation'), ru)}
+- Основной KPI: {dash(summary.get('target_kpi'), ru)}
+- Уверенность: {confidence_label(str(item.get('confidence')), ru)}
 
-## Текущее состояние
+## Как читать пакет
 
-- Minimum gate: {yes_no(state.get('minimum_gate_satisfied', False), ru)}
-- Completeness score: {state.get('scores', {}).get('completeness', 0)}/100
-- Qualification score: {state.get('scores', {}).get('qualification', 0)}/100
-- Research readiness score: {state.get('scores', {}).get('research_readiness', 0)}/100
+1. Резюме решения: что строить и почему.
+2. Сегменты и задачи: для кого воронка и какое убеждение меняем.
+3. Карта воронки и плейбук экранов: что показать пользователю по шагам.
+4. Метрики, эксперимент и риски: как запускать без самообмана.
+
+## Состояние данных
+
+- Минимальный входной набор: {yes_no(state.get('minimum_gate_satisfied', False), ru)}
+- Полнота контекста: {state.get('scores', {}).get('completeness', 0)}/100
+- Квалификация: {state.get('scores', {}).get('qualification', 0)}/100
+- Готовность ресерча: {state.get('scores', {}).get('research_readiness', 0)}/100
 """
-    return f"""# Final Pack
+    return f"""# Start Here
 
-This package is compiled from `runtime/` for human review.
+> **First action:** {dash(summary.get('first_action'))}
 
-## Read in Order
+## Core Decision
 
-- Status and next steps
-- Intake brief
-- Research evidence
-- Competitor map
-- Funnel blueprint
-- Screen specs
-- Tracking plan
-- Experiment card
-- Risks and gaps
-- Execution plan
+- Status: {dash(summary.get('status'))}
+- Recommendation: {dash(summary.get('recommendation'))}
+- Primary KPI: {dash(summary.get('target_kpi'))}
+- Confidence: {dash(item.get('confidence'))}
 
-## Current State
+## How To Read This Pack
+
+1. Decision summary: what to build and why.
+2. Segments and jobs: who the funnel is for and which belief changes.
+3. Funnel map and screen playbook: what the user sees step by step.
+4. Tracking, experiment, and risks: how to launch without fooling yourself.
+
+## Data State
 
 - Minimum gate: {yes_no(state.get('minimum_gate_satisfied', False), ru)}
 - Completeness score: {state.get('scores', {}).get('completeness', 0)}/100
@@ -145,256 +146,266 @@ This package is compiled from `runtime/` for human review.
 def render_status(data: dict[str, Any]) -> str:
     ru = is_russian(data)
     state = data["state"]
+    item = insights(data)
+    summary = item.get("decision_summary", {}) if isinstance(item.get("decision_summary"), dict) else {}
     missing = state.get("critical_missing_fields", [])
-    gaps = state.get("evidence_gaps", [])
     next_input = state.get("next_best_input", [])
-    artifact_status = state.get("artifact_status", {})
     if ru:
-        return f"""# Статус и следующие шаги
+        return f"""# Резюме решения
 
-## Scores
+## Что решено
 
-- Оценка полноты: {state.get('scores', {}).get('completeness', 0)}/100
-- Qualification score: {state.get('scores', {}).get('qualification', 0)}/100
-- Research readiness score: {state.get('scores', {}).get('research_readiness', 0)}/100
-- Minimum gate: {yes_no(state.get('minimum_gate_satisfied', False), ru)}
-- Decision: `{state.get('decision', '-')}`
+- Рекомендация: {dash(summary.get('recommendation'), ru)}
+- Почему: {dash(summary.get('why'), ru)}
+- Выбранный путь: `{dash(summary.get('skeleton'), ru)}`
+- Основание: `{dash(summary.get('support'), ru)}`
 
-## Не хватает
+## Готовность
 
-{bullet_list(missing, '-')}
+| Критерий | Значение |
+| --- | --- |
+| Статус | {table_cell(summary.get('status'), ru)} |
+| Готово к рекомендациям | {yes_no(state.get('phase') == 'ready', ru)} |
+| Полнота контекста | {state.get('scores', {}).get('completeness', 0)}/100 |
+| Квалификация | {state.get('scores', {}).get('qualification', 0)}/100 |
+| Готовность ресерча | {state.get('scores', {}).get('research_readiness', 0)}/100 |
+| Решение системы | `{table_cell(state.get('decision'), ru)}` |
 
-## Evidence gaps
+## Что блокирует уверенность
 
-{bullet_list(gaps, '-')}
+{bullet_list(missing or state.get('evidence_gaps', []), 'нет блокеров', ru)}
 
-## Artifact status
+## Следующий точный ввод
 
-{dict_table(artifact_status, 'Artifact', 'Status')}
-
-## Следующий ввод
-
-{bullet_list(next_input, '-')}
+{bullet_list(next_input, 'назначить владельца первого эксперимента', ru)}
 """
-    return f"""# Status and Next Steps
+    return f"""# Decision Summary
 
-## Scores
+## What Is Decided
 
-- Completeness score: {state.get('scores', {}).get('completeness', 0)}/100
-- Qualification score: {state.get('scores', {}).get('qualification', 0)}/100
-- Research readiness score: {state.get('scores', {}).get('research_readiness', 0)}/100
-- Minimum gate: {yes_no(state.get('minimum_gate_satisfied', False), ru)}
-- Decision: `{state.get('decision', '-')}`
+- Recommendation: {dash(summary.get('recommendation'))}
+- Why: {dash(summary.get('why'))}
+- Selected path: `{dash(summary.get('skeleton'))}`
+- Support: `{dash(summary.get('support'))}`
 
-## Missing
+## Readiness
 
-{bullet_list(missing, '-')}
+| Criterion | Value |
+| --- | --- |
+| Status | {table_cell(summary.get('status'))} |
+| Recommendations ready | {yes_no(state.get('phase') == 'ready', ru)} |
+| Completeness | {state.get('scores', {}).get('completeness', 0)}/100 |
+| Qualification | {state.get('scores', {}).get('qualification', 0)}/100 |
+| Research readiness | {state.get('scores', {}).get('research_readiness', 0)}/100 |
+| System decision | `{table_cell(state.get('decision'))}` |
 
-## Evidence Gaps
+## What Blocks Confidence
 
-{bullet_list(gaps, '-')}
+{bullet_list(missing or state.get('evidence_gaps', []), 'no blockers', ru)}
 
-## Artifact Status
+## Next Precise Input
 
-{dict_table(artifact_status, 'Artifact', 'Status')}
-
-## Next Input
-
-{bullet_list(next_input, '-')}
+{bullet_list(next_input, 'assign the first experiment owner', ru)}
 """
 
 
-def render_intake(data: dict[str, Any]) -> str:
+def render_segments(data: dict[str, Any]) -> str:
     ru = is_russian(data)
     intake = data["intake"]
+    item = insights(data)
+    segments = item.get("segments", []) if isinstance(item.get("segments"), list) else []
+    title = "Сегменты и задачи" if ru else "Segments and Jobs"
+    context_title = "Нормализованный контекст" if ru else "Normalized Context"
+    proof_title = "Доказательства и метрики" if ru else "Proof and Metrics"
     fields = [
-        ("Project", intake.get("project_name")),
-        ("Offer", intake.get("offer")),
-        ("ICP", intake.get("icp")),
-        ("Primary persona", intake.get("primary_persona")),
-        ("JTBD", intake.get("jtbd")),
-        ("Target KPI", intake.get("target_kpi")),
-        ("Primary channel", intake.get("primary_channel")),
-        ("Pricing", intake.get("pricing")),
-        ("TTFV minutes", intake.get("time_to_first_value_minutes")),
-        ("Sales motion", intake.get("sales_motion")),
-        ("Constraints", intake.get("product_constraints")),
-        ("Output language", intake.get("output_language")),
+        ("Проект" if ru else "Project", intake.get("project_name")),
+        ("Оффер" if ru else "Offer", intake.get("offer")),
+        ("ICP" if ru else "ICP", intake.get("icp")),
+        ("Основная персона" if ru else "Primary persona", intake.get("primary_persona")),
+        ("Задача пользователя" if ru else "Job to be done", intake.get("jtbd")),
+        ("Основной KPI" if ru else "Primary KPI", intake.get("target_kpi")),
+        ("Канал" if ru else "Channel", intake.get("primary_channel")),
+        ("Цена" if ru else "Pricing", intake.get("pricing")),
+        ("Минут до первой ценности" if ru else "Minutes to first value", intake.get("time_to_first_value_minutes")),
+        ("Ограничения" if ru else "Constraints", intake.get("product_constraints")),
     ]
-    proof_assets = intake.get("proof_assets") if isinstance(intake.get("proof_assets"), list) else []
-    metrics = intake.get("metrics") if isinstance(intake.get("metrics"), list) else []
-    title = "Intake brief" if not ru else "Intake brief"
     return f"""# {title}
 
-## Normalized Context
+## {title}
 
-{rows_table(fields, 'Field', 'Value')}
+{segments_table(segments, ru)}
 
-## Proof State
+## {context_title}
 
-- Explicit no proof yet: {yes_no(bool(intake.get('explicit_no_proof_yet')), ru)}
-- Proof assets:
+{rows_table(fields, "Поле" if ru else "Field", "Значение" if ru else "Value", ru)}
 
-{bullet_list(proof_assets, '-')}
+## {proof_title}
 
-## Metrics
+- {"Доказательств пока нет" if ru else "Explicit no proof yet"}: {yes_no(bool(intake.get('explicit_no_proof_yet')), ru)}
+- {"Доказательства" if ru else "Proof assets"}:
 
-{metrics_table(metrics)}
+{bullet_list(intake.get('proof_assets', []), 'нет', ru)}
+
+### {"Метрики" if ru else "Metrics"}
+
+{metrics_table(intake.get('metrics', []), ru)}
 """
 
 
-def render_research(data: dict[str, Any]) -> str:
+def render_evidence(data: dict[str, Any]) -> str:
     ru = is_russian(data)
-    sources = data["sources"]
+    item = insights(data)
+    evidence_refs = item.get("evidence_refs", []) if isinstance(item.get("evidence_refs"), list) else []
+    assumptions = item.get("assumptions", []) if isinstance(item.get("assumptions"), list) else []
     results = data["agent_results"]
-    title = "Research и evidence summary" if ru else "Research Evidence Summary"
-    return f"""# {title}
+    if ru:
+        return f"""# Данные и допущения
 
-## Source Registry
+## Источники, использованные в решениях
 
-{source_table(sources)}
+{evidence_refs_table(evidence_refs, ru)}
+
+## Допущения вместо выдуманных фактов
+
+{assumptions_table(assumptions, ru)}
+
+## Результаты специалистов
+
+{agent_results_section(results, ru)}
+
+## Правило данных
+
+Цены, журналы изменений и утверждения про текущую практику требуют даты получения. Без даты они остаются пробелом данных, а не фактом.
+"""
+    return f"""# Evidence and Assumptions
+
+## Evidence Used In Decisions
+
+{evidence_refs_table(evidence_refs, ru)}
+
+## Assumptions Instead Of Invented Facts
+
+{assumptions_table(assumptions, ru)}
 
 ## Specialist Results
 
-{agent_results_section(results)}
+{agent_results_section(results, ru)}
 
-## Research Rule
+## Evidence Rule
 
-Pricing, changelog, and current-practice claims require retrieval dates. Missing dates remain evidence gaps instead of being treated as current facts.
+Pricing, changelog, and current-practice claims require retrieval dates. Missing dates remain evidence gaps instead of current facts.
 """
 
 
 def render_competitors(data: dict[str, Any]) -> str:
     ru = is_russian(data)
-    title = "Карта конкурентов" if ru else "Competitor Map"
-    competitors = data["competitors"]
+    title = "Конкурентные паттерны" if ru else "Competitive Patterns"
+    guidance = (
+        "Используйте строки конкурентов как наблюдения. Не переносите утверждения в рекомендации без источника и даты получения."
+        if ru
+        else "Use competitor rows as observations. Do not copy claims into recommendations unless the source and retrieval date are present."
+    )
     return f"""# {title}
 
-{competitor_table(competitors)}
+{competitor_table(data["competitors"], ru)}
 
-## Interpretation
+## {"Как применять" if ru else "How To Use This"}
 
-Use competitor rows as observed evidence only. Do not copy competitor claims into recommendations unless the source and retrieval date are present.
+{guidance}
 """
 
 
 def render_blueprint(data: dict[str, Any]) -> str:
     ru = is_russian(data)
-    intake = data["intake"]
-    gate = minimum_gate_satisfied(intake)
-    skeleton, rationale = select_skeleton(data)
-    fallback = "diagnostic_to_roadmap" if skeleton != "diagnostic_to_roadmap" else "demo_led"
-    blocked = "" if gate else "\n## Blocked\n\nFinal recommendations are blocked until the minimum gate is satisfied.\n"
+    item = insights(data)
+    summary = item.get("decision_summary", {}) if isinstance(item.get("decision_summary"), dict) else {}
+    screens = item.get("screens", []) if isinstance(item.get("screens"), list) else []
+    skeleton, fallback_rationale = select_funnel_skeleton(data)
+    rationale = str(summary.get("rationale") or fallback_rationale)
+    gate = minimum_gate_satisfied(data["intake"])
+    blocked = ""
+    if not gate:
+        blocked = "> **Статус:** карта заблокирована до заполнения минимального входного набора.\n\n" if ru else "> **Status:** map is blocked until the minimum gate is satisfied.\n\n"
     if ru:
-        blocked = "" if gate else "\n## Заблокировано\n\nФинальные рекомендации заблокированы, пока не выполнен minimum gate.\n"
-        return f"""# Blueprint воронки
+        return f"""# Карта воронки
 
-## Резюме
+{blocked}## Логика пути
 
-- Оффер: {dash(intake.get('offer'))}
-- ICP/персона: {dash(intake.get('icp') or intake.get('primary_persona'))}
-- Target KPI: {dash(intake.get('target_kpi'))}
-- Канал: {dash(intake.get('primary_channel'))}
-- Skeleton: `{skeleton}`
-- Fallback: `{fallback}`
-- Логика: {rationale}
-{blocked}
-## Путь
+- Путь: `{skeleton}`
+- Основание выбора: {rationale}
+- Целевое действие: {dash(summary.get('target_kpi'), ru)}
+- Основание: `{dash(summary.get('support'), ru)}`
 
-1. Согласовать сообщение с каналом и ICP.
-2. Собрать минимальный brief для сегментации.
-3. Показать diagnosis или preview первой ценности.
-4. Выбрать self-serve или assisted path по TTFV и уровню доверия.
-5. Инструментировать события до запуска эксперимента.
+## Маршрут пользователя
+
+{funnel_map_table(screens, ru)}
 """
-    return f"""# Funnel Blueprint
+    return f"""# Funnel Map
 
-## Summary
+{blocked}## Path Logic
 
-- Offer: {dash(intake.get('offer'))}
-- ICP/persona: {dash(intake.get('icp') or intake.get('primary_persona'))}
-- Target KPI: {dash(intake.get('target_kpi'))}
-- Channel: {dash(intake.get('primary_channel'))}
-- Skeleton: `{skeleton}`
-- Fallback: `{fallback}`
+- Path: `{skeleton}`
 - Rationale: {rationale}
-{blocked}
-## Path
+- Target action: {dash(summary.get('target_kpi'))}
+- Support: `{dash(summary.get('support'))}`
 
-1. Match message to channel and ICP.
-2. Collect the minimum brief for segmentation.
-3. Show diagnosis or first-value preview.
-4. Choose self-serve or assisted path by TTFV and trust requirement.
-5. Instrument events before interpreting experiments.
+## User Route
+
+{funnel_map_table(screens, ru)}
 """
 
 
 def render_screen_specs(data: dict[str, Any]) -> str:
     ru = is_russian(data)
-    title = "Спецификация экранов" if ru else "Screen Specs"
+    item = insights(data)
+    screens = item.get("screens", []) if isinstance(item.get("screens"), list) else []
     gate = minimum_gate_satisfied(data["intake"])
     blocked = ""
     if not gate:
         blocked = (
-            "Status: blocked until the minimum gate is satisfied. Treat the table below as a generic draft scaffold, not a ready recommendation.\n\n"
+            "Status: blocked until the minimum gate is satisfied. Treat the table below as a draft scaffold, not a ready recommendation.\n\n"
             if not ru
-            else "Статус: заблокировано до выполнения minimum gate. Таблица ниже является черновым scaffold, а не готовой рекомендацией.\n\n"
+            else "Статус: заблокировано до заполнения минимального входного набора. Таблица ниже является черновиком, а не готовой рекомендацией.\n\n"
         )
-    rows = [
-        ("Landing", "This is for my situation.", "Pain/outcome hero, proof band, result preview.", "Start brief", "Brief Started / Landing Viewed"),
-        ("Brief", "The system understands context.", "3-7 adaptive questions with progress.", "Continue diagnosis", "Brief Completed / Brief Started"),
-        ("Diagnosis", "The problem is specific and fixable.", "Ranked gaps, severity, confidence.", "Build my plan", "Roadmap Viewed / Diagnosis Generated"),
-        ("Roadmap", "There is a credible route to value.", "Quick win and 7/30/90 path.", "Start the plan", "Onboarding Started / Roadmap Viewed"),
-        ("Onboarding", "Value can happen quickly.", "One task, prefill/sample data, contextual help.", "Create first result", "First Value Reached / Onboarding Started"),
-        ("Paywall", "Payment follows value.", "Outcome-based plans, proof, preserved state.", "Choose plan", "Payment Completed / Checkout Started"),
-        ("Retention", "Returning creates new value.", "Weekly insight and one recommended action.", "Run next improvement", "D7/D30 retention"),
-    ]
+    title = "Плейбук экранов" if ru else "Screen Playbook"
     return f"""# {title}
 
-{blocked}
-| Stage | Target belief | Content | CTA | Primary metric |
-| --- | --- | --- | --- | --- |
-{chr(10).join(f"| {table_cell(a)} | {table_cell(b)} | {table_cell(c)} | {table_cell(d)} | {table_cell(e)} |" for a, b, c, d, e in rows)}
+{blocked}{screen_table(screens, ru)}
 """
 
 
 def render_tracking(data: dict[str, Any]) -> str:
     ru = is_russian(data)
-    intake = data["intake"]
-    gate = minimum_gate_satisfied(intake)
-    target_kpi = dash(intake.get("target_kpi"))
+    item = insights(data)
+    screens = item.get("screens", []) if isinstance(item.get("screens"), list) else []
+    target_kpi = dash(data["intake"].get("target_kpi"), ru)
+    title = "Метрики и события" if ru else "Tracking and KPIs"
     blocked = ""
-    if not gate:
+    if not minimum_gate_satisfied(data["intake"]):
         blocked = (
-            "Status: blocked until the target KPI, audience, channel, offer, and proof state are known. Use this only as an instrumentation scaffold.\n\n"
-            if not ru
-            else "Статус: заблокировано, пока неизвестны target KPI, аудитория, канал, оффер и proof state. Используйте это только как scaffold для instrumentation.\n\n"
+            "Статус: заблокировано, пока неизвестны оффер, аудитория, канал, KPI и состояние доказательств.\n\n"
+            if ru
+            else "Status: blocked until the offer, audience, channel, KPI, and proof state are known.\n\n"
         )
-    headers = ("Событие", "Этап", "Назначение", "Primary metric", "Guardrail") if ru else ("Event", "Stage", "Purpose", "Primary metric", "Guardrail")
-    rows = [
-        ("Landing Viewed", "Landing", "Qualified exposure", "Brief Started / Landing Viewed", "bounce proxy"),
-        ("Brief Started", "Brief", "Message-to-diagnostic intent", "Brief Started / Landing Viewed", "low-quality starts"),
-        ("Brief Completed", "Brief", "Required context capture", "Brief Completed / Brief Started", "completion time"),
-        ("Diagnosis Generated", "Diagnosis", "Segment-specific insight", "Roadmap Viewed / Diagnosis Generated", "fallback diagnosis rate"),
-        ("First Value Reached", "Onboarding", "First meaningful outcome", "First Value Reached / Onboarding Started", "support contact rate"),
-        ("Payment Completed", "Paywall", "Monetization after value", "Payment Completed / Checkout Started", "refund/payment error rate"),
-        ("Experiment Exposed", "Experiment", "Trustworthy exposure logging", target_kpi, "SRM/event loss"),
-    ]
-    return f"""# {"План трекинга" if ru else "Tracking Plan"}
+    return f"""# {title}
 
-{blocked}
-| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} |
-| --- | --- | --- | --- | --- |
-{chr(10).join(f"| {table_cell(a)} | {table_cell(b)} | {table_cell(c)} | {table_cell(d)} | {table_cell(e)} |" for a, b, c, d, e in rows)}
+{blocked}## {"Контракт KPI" if ru else "KPI Contract"}
+
+- {"Основная метрика" if ru else "Primary metric"}: {target_kpi}
+- {"Нельзя интерпретировать эксперимент без чистого event logging." if ru else "Do not interpret an experiment without clean event logging."}
+
+## {"События по шагам" if ru else "Events By Step"}
+
+{tracking_table(screens, ru)}
 """
 
 
 def render_experiment(data: dict[str, Any]) -> str:
     ru = is_russian(data)
-    intake = data["intake"]
-    gate = minimum_gate_satisfied(intake)
-    title = "Карточка эксперимента" if ru else "Experiment Card"
-    if not gate:
+    item = insights(data)
+    experiments = item.get("experiments", []) if isinstance(item.get("experiments"), list) else []
+    title = "Следующий эксперимент" if ru else "Next Experiment"
+    if not minimum_gate_satisfied(data["intake"]):
         missing = data["state"].get("critical_missing_fields", [])
         return f"""# {title}
 
@@ -402,155 +413,252 @@ Status: blocked
 
 ## Missing
 
-{bullet_list(missing, '-')}
+{bullet_list(missing, '-', ru)}
 """
-    skeleton, _ = select_skeleton(data)
     return f"""# {title}
 
-## Hypothesis
-
-If the `{skeleton}` path aligns the promise, brief, and first-value moment, then `{dash(intake.get('target_kpi'))}` will improve for `{dash(intake.get('icp') or intake.get('primary_persona'))}` from `{dash(intake.get('primary_channel'))}`.
-
-## Primary Metric
-
-{dash(intake.get('target_kpi'))}
-
-## Guardrail
-
-Support contact rate, event loss, payment errors, and low-quality starts must not degrade materially.
-
-## Decision Rule
-
-Ship only when exposure logging is clean, the primary metric clears the practical threshold, guardrails hold, and qualitative evidence does not contradict the result.
+{experiment_table(experiments, ru)}
 """
 
 
 def render_gaps(data: dict[str, Any]) -> str:
     ru = is_russian(data)
+    item = insights(data)
     gaps = data["gaps"]
-    title = "Риски и gaps" if ru else "Risks and Gaps"
+    risks = item.get("risks", []) if isinstance(item.get("risks"), list) else []
+    title = "Риски и пробелы" if ru else "Risks and Gaps"
     return f"""# {title}
 
-## Missing Fields
+## {"Карта рисков" if ru else "Risk Heatmap"}
 
-{bullet_list(gaps.get('missing_fields', []), '-')}
+{risk_table(risks, ru)}
 
-## Evidence Gaps
+## {"Пробелы данных" if ru else "Evidence Gaps"}
 
-{bullet_list(gaps.get('evidence_gaps', []), '-')}
+{bullet_list(gaps.get('evidence_gaps', []), 'нет', ru)}
 
-## Conflicts
+## {"Конфликты" if ru else "Conflicts"}
 
-{bullet_list(gaps.get('conflicts', []), '-')}
+{bullet_list(gaps.get('conflicts', []), 'нет', ru)}
 
-## Blocked Recommendations
+## {"Заблокированные рекомендации" if ru else "Blocked Recommendations"}
 
-{bullet_list(gaps.get('blocked_recommendations', []), '-')}
+{bullet_list(gaps.get('blocked_recommendations', []), 'нет', ru)}
 """
 
 
 def render_execution(data: dict[str, Any]) -> str:
     ru = is_russian(data)
     gaps = data["gaps"]
-    title = "План исполнения" if ru else "Execution Plan"
-    auto_title = "Auto-collect" if not ru else "Auto-collect"
-    ask_title = "Ask user" if not ru else "Спросить пользователя"
+    item = insights(data)
+    summary = item.get("decision_summary", {}) if isinstance(item.get("decision_summary"), dict) else {}
+    title = "План внедрения" if ru else "Execution Plan"
+    if ru:
+        return f"""# {title}
+
+> **Первый шаг:** {dash(summary.get('first_action'), ru)}
+
+## Собрать автоматически
+
+{bullet_list(gaps.get('auto_collect', []), 'нет задач', ru)}
+
+## Спросить пользователя
+
+{bullet_list(gaps.get('ask_user', []), 'нет вопросов', ru)}
+
+## Проверить перед запуском
+
+- Повторно запустить `validate_workspace.py`.
+- Повторно отрендерить `final/`.
+- Проверить, что `runtime/insights.json` не попал в `final/`.
+- Убедиться, что каждая рекомендация ссылается на источник или явное допущение.
+"""
     return f"""# {title}
 
-## {auto_title}
+> **First step:** {dash(summary.get('first_action'))}
 
-{bullet_list(gaps.get('auto_collect', []), '-')}
+## Auto-Collect
 
-## {ask_title}
+{bullet_list(gaps.get('auto_collect', []), 'no tasks', ru)}
 
-{bullet_list(gaps.get('ask_user', []), '-')}
+## Ask User
 
-## Verify
+{bullet_list(gaps.get('ask_user', []), 'no questions', ru)}
+
+## Verify Before Launch
 
 - Re-run `validate_workspace.py`.
 - Re-render `final/`.
-- Check that no raw runtime files leaked into `final/`.
+- Check that `runtime/insights.json` did not leak into `final/`.
+- Confirm that every recommendation references evidence or an explicit assumption.
 """
 
 
-def bullet_list(values: Any, fallback: str) -> str:
+def bullet_list(values: Any, fallback: str, ru: bool = False) -> str:
     if not values:
         return f"- {fallback}"
     if isinstance(values, dict):
         values = [f"{key}: {value}" for key, value in values.items()]
-    return "\n".join(f"- {dash(value)}" for value in values)
+    return "\n".join(f"- {dash(value, ru)}" for value in values)
 
 
-def dict_table(values: dict[str, Any], key_label: str, value_label: str) -> str:
-    if not values:
-        return f"| {key_label} | {value_label} |\n| --- | --- |\n| - | - |"
-    rows = "\n".join(f"| {table_cell(key)} | {table_cell(value)} |" for key, value in values.items())
-    return f"| {key_label} | {value_label} |\n| --- | --- |\n{rows}"
-
-
-def rows_table(rows: list[tuple[str, Any]], key_label: str, value_label: str) -> str:
-    body = "\n".join(f"| {table_cell(key)} | {table_cell(value)} |" for key, value in rows)
+def rows_table(rows: list[tuple[str, Any]], key_label: str, value_label: str, ru: bool = False) -> str:
+    body = "\n".join(f"| {table_cell(key, ru)} | {table_cell(value, ru)} |" for key, value in rows)
     return f"| {key_label} | {value_label} |\n| --- | --- |\n{body}"
 
 
-def metrics_table(metrics: Any) -> str:
+def segments_table(rows: list[dict[str, Any]], ru: bool) -> str:
+    if not rows:
+        empty = "нет" if ru else "-"
+        return f"| {'Сегмент' if ru else 'Segment'} | {'Задача' if ru else 'Job'} | {'Сдвиг убеждения' if ru else 'Belief shift'} | {'Основание' if ru else 'Support'} |\n| --- | --- | --- | --- |\n| {empty} | {empty} | {empty} | {empty} |"
+    headers = ("Сегмент", "Задача", "Боль", "Сдвиг убеждения", "Основание", "Уверенность") if ru else ("Segment", "Job", "Pain", "Belief shift", "Support", "Confidence")
+    body = "\n".join(
+        f"| {table_cell(row.get('segment'), ru)} | {table_cell(row.get('job'), ru)} | {table_cell(row.get('pain'), ru)} | {table_cell(row.get('belief_shift'), ru)} | {table_cell(row.get('support'), ru)} | {table_cell(confidence_label(str(row.get('confidence')), ru), ru)} |"
+        for row in rows
+    )
+    return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} | {headers[5]} |\n| --- | --- | --- | --- | --- | --- |\n{body}"
+
+
+def funnel_map_table(rows: list[dict[str, Any]], ru: bool) -> str:
+    headers = ("Шаг", "Убеждение", "Контент", "CTA", "Метрика") if ru else ("Step", "Belief", "Content", "CTA", "Metric")
+    if not rows:
+        return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} |\n| --- | --- | --- | --- | --- |\n| - | - | - | - | - |"
+    body = "\n".join(
+        f"| {table_cell(row.get('stage'), ru)} | {table_cell(row.get('target_belief'), ru)} | {table_cell(row.get('content'), ru)} | {table_cell(row.get('cta'), ru)} | {table_cell(row.get('metric'), ru)} |"
+        for row in rows
+    )
+    return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} |\n| --- | --- | --- | --- | --- |\n{body}"
+
+
+def screen_table(rows: list[dict[str, Any]], ru: bool) -> str:
+    headers = ("Экран", "Убеждение", "Контент", "CTA", "Доказательство", "Основание") if ru else ("Screen", "Target belief", "Content", "CTA", "Proof needed", "Support")
+    if not rows:
+        return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} | {headers[5]} |\n| --- | --- | --- | --- | --- | --- |\n| - | - | - | - | - | - |"
+    body = "\n".join(
+        f"| {table_cell(row.get('stage'), ru)} | {table_cell(row.get('target_belief'), ru)} | {table_cell(row.get('content'), ru)} | {table_cell(row.get('cta'), ru)} | {table_cell(row.get('proof_needed'), ru)} | {table_cell(row.get('support'), ru)} |"
+        for row in rows
+    )
+    return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} | {headers[5]} |\n| --- | --- | --- | --- | --- | --- |\n{body}"
+
+
+def tracking_table(rows: list[dict[str, Any]], ru: bool) -> str:
+    headers = ("Событие", "Шаг", "Главная метрика", "Guardrail") if ru else ("Event", "Step", "Primary metric", "Guardrail")
+    if not rows:
+        return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} |\n| --- | --- | --- | --- |\n| - | - | - | - |"
+    body = "\n".join(
+        f"| {event_name(row.get('stage'), ru)} | {table_cell(row.get('stage'), ru)} | {table_cell(row.get('metric'), ru)} | {table_cell(row.get('guardrail'), ru)} |"
+        for row in rows
+    )
+    return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} |\n| --- | --- | --- | --- |\n{body}"
+
+
+def event_name(stage: Any, ru: bool) -> str:
+    text = dash(stage, ru)
+    return f"{text}: {'событие зафиксировано' if ru else 'event logged'}"
+
+
+def experiment_table(rows: list[dict[str, Any]], ru: bool) -> str:
+    headers = ("Название", "Гипотеза", "Изменение", "Метрика", "Правило решения", "Основание") if ru else ("Name", "Hypothesis", "Change", "Metric", "Decision rule", "Support")
+    if not rows:
+        return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} | {headers[5]} |\n| --- | --- | --- | --- | --- | --- |\n| - | - | - | - | - | - |"
+    body = "\n".join(
+        f"| {table_cell(row.get('name'), ru)} | {table_cell(row.get('hypothesis'), ru)} | {table_cell(row.get('change'), ru)} | {table_cell(row.get('primary_metric'), ru)} | {table_cell(row.get('decision_rule'), ru)} | {table_cell(row.get('support'), ru)} |"
+        for row in rows
+    )
+    return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} | {headers[5]} |\n| --- | --- | --- | --- | --- | --- |\n{body}"
+
+
+def risk_table(rows: list[dict[str, Any]], ru: bool) -> str:
+    headers = ("Риск", "Уровень", "Снижение риска", "Основание") if ru else ("Risk", "Level", "Mitigation", "Support")
+    if not rows:
+        return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} |\n| --- | --- | --- | --- |\n| - | - | - | - |"
+    body = "\n".join(
+        f"| {table_cell(row.get('risk'), ru)} | {table_cell(row.get('level'), ru)} | {table_cell(row.get('mitigation'), ru)} | {table_cell(row.get('support'), ru)} |"
+        for row in rows
+    )
+    return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} |\n| --- | --- | --- | --- |\n{body}"
+
+
+def assumptions_table(rows: list[dict[str, Any]], ru: bool) -> str:
+    headers = ("ID", "Допущение", "Где используется") if ru else ("ID", "Assumption", "Used in")
+    if not rows:
+        return f"| {headers[0]} | {headers[1]} | {headers[2]} |\n| --- | --- | --- |\n| - | - | - |"
+    body = "\n".join(
+        f"| {table_cell(row.get('id'), ru)} | {table_cell(row.get('statement'), ru)} | {table_cell(row.get('used_in'), ru)} |"
+        for row in rows
+    )
+    return f"| {headers[0]} | {headers[1]} | {headers[2]} |\n| --- | --- | --- |\n{body}"
+
+
+def evidence_refs_table(rows: list[dict[str, Any]], ru: bool) -> str:
+    headers = ("ID", "Название", "Уверенность", "URL") if ru else ("ID", "Title", "Confidence", "URL")
+    if not rows:
+        empty = "нет источников" if ru else "no sources"
+        return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} |\n| --- | --- | --- | --- |\n| - | {empty} | - | - |"
+    body = "\n".join(
+        f"| {table_cell(row.get('id'), ru)} | {table_cell(row.get('title'), ru)} | {table_cell(confidence_label(str(row.get('confidence')), ru), ru)} | {table_cell(row.get('url'), ru)} |"
+        for row in rows
+    )
+    return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} |\n| --- | --- | --- | --- |\n{body}"
+
+
+def metrics_table(metrics: Any, ru: bool) -> str:
+    headers = ("Метрика", "Значение", "Источник", "Заметки") if ru else ("Metric", "Value", "Source", "Notes")
     if not metrics:
-        return "| Metric | Value | Source | Notes |\n| --- | --- | --- | --- |\n| - | - | - | - |"
+        return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} |\n| --- | --- | --- | --- |\n| - | - | - | - |"
     rows = []
     for metric in metrics:
         if isinstance(metric, dict):
-            rows.append(f"| {table_cell(metric.get('metric_name'))} | {table_cell(metric.get('value'))} | {table_cell(metric.get('source'))} | {table_cell(metric.get('notes'))} |")
+            rows.append(f"| {table_cell(metric.get('metric_name'), ru)} | {table_cell(metric.get('value'), ru)} | {table_cell(metric.get('source'), ru)} | {table_cell(metric.get('notes'), ru)} |")
         else:
-            rows.append(f"| raw_metric | - | ingested_notes | {table_cell(metric)} |")
-    return "| Metric | Value | Source | Notes |\n| --- | --- | --- | --- |\n" + "\n".join(rows)
+            rows.append(f"| raw_metric | - | ingested_notes | {table_cell(metric, ru)} |")
+    return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} |\n| --- | --- | --- | --- |\n" + "\n".join(rows)
 
 
-def source_table(sources: list[dict[str, Any]]) -> str:
-    if not sources:
-        return "| Title | Type | Publisher | Retrieved | Freshness | Confidence | Used in | URL |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n| - | - | - | - | - | - | - | - |"
-    rows = []
-    for source in sources:
-        used_in = source.get("used_in", [])
-        used_in_text = ", ".join(str(item) for item in used_in) if isinstance(used_in, list) else dash(used_in)
-        rows.append(
-            f"| {table_cell(source.get('title'))} | {table_cell(source.get('source_type'))} | {table_cell(source.get('publisher'))} | {table_cell(source.get('retrieved_at'))} | {table_cell(source.get('freshness'))} | {table_cell(source.get('confidence'))} | {table_cell(used_in_text)} | {table_cell(source.get('url'))} |"
-        )
-    return "| Title | Type | Publisher | Retrieved | Freshness | Confidence | Used in | URL |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n" + "\n".join(rows)
-
-
-def competitor_table(rows: list[dict[str, str]]) -> str:
+def competitor_table(rows: list[dict[str, str]], ru: bool) -> str:
+    headers = ("Конкурент", "Позиционирование", "Цена", "CTA", "Онбординг", "Дата", "Уверенность", "Источник") if ru else ("Competitor", "Positioning", "Pricing", "CTA", "Onboarding", "Retrieved", "Confidence", "Source")
     if not rows:
-        return "| Competitor | Positioning | Pricing | CTA | Onboarding | Retrieved | Confidence | Source |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n| - | - | - | - | - | - | - | - |"
+        return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} | {headers[5]} | {headers[6]} | {headers[7]} |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n| - | - | - | - | - | - | - | - |"
     body = "\n".join(
-        f"| {table_cell(row.get('competitor'))} | {table_cell(row.get('positioning'))} | {table_cell(row.get('pricing'))} | {table_cell(row.get('primary_cta'))} | {table_cell(row.get('onboarding_pattern'))} | {table_cell(row.get('retrieved_at'))} | {table_cell(row.get('confidence'))} | {table_cell(row.get('source'))} |"
+        f"| {table_cell(row.get('competitor'), ru)} | {table_cell(row.get('positioning'), ru)} | {table_cell(row.get('pricing'), ru)} | {table_cell(row.get('primary_cta'), ru)} | {table_cell(row.get('onboarding_pattern'), ru)} | {table_cell(row.get('retrieved_at'), ru)} | {table_cell(confidence_label(str(row.get('confidence')), ru), ru)} | {table_cell(row.get('source'), ru)} |"
         for row in rows
     )
-    return "| Competitor | Positioning | Pricing | CTA | Onboarding | Retrieved | Confidence | Source |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n" + body
+    return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} | {headers[5]} | {headers[6]} | {headers[7]} |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n" + body
 
 
-def agent_results_section(results: list[dict[str, Any]]) -> str:
+def agent_results_section(results: list[dict[str, Any]], ru: bool) -> str:
     if not results:
-        return "- No specialist results recorded yet."
+        return "- Результаты специалистов пока не записаны." if ru else "- No specialist results recorded yet."
     sections = []
     for result in results:
-        findings = bullet_list(result.get("key_findings", []), "-")
-        sections.append(
-            f"### {dash(result.get('role'))}: {dash(result.get('topic_id'))}\n\n"
-            f"{dash(result.get('summary'))}\n\n"
-            f"Findings:\n\n{findings}\n\n"
-            f"Confidence: {dash(result.get('confidence'))}"
-        )
+        findings = bullet_list(result.get("key_findings", []), "-", ru)
+        if ru:
+            sections.append(
+                f"### {dash(result.get('role'), ru)}: {dash(result.get('topic_id'), ru)}\n\n"
+                f"{dash(result.get('summary'), ru)}\n\n"
+                f"Выводы:\n\n{findings}\n\n"
+                f"Уверенность: {confidence_label(str(result.get('confidence')), ru)}"
+            )
+        else:
+            sections.append(
+                f"### {dash(result.get('role'))}: {dash(result.get('topic_id'))}\n\n"
+                f"{dash(result.get('summary'))}\n\n"
+                f"Findings:\n\n{findings}\n\n"
+                f"Confidence: {dash(result.get('confidence'))}"
+            )
     return "\n\n".join(sections)
 
 
 def write_index_html(workspace: Path, data: dict[str, Any], nav: list[tuple[str, str]]) -> None:
     ru = is_russian(data)
+    language = output_language(data)
     links = "\n".join(
         f'<a class="index-card" href="{escape(slug)}.html"><span>{number + 1:02d}</span>{escape(title)}</a>'
         for number, (slug, title) in enumerate(nav)
     )
     title = "Оглавление" if ru else "Index"
-    start = "Начать" if ru else "Start"
+    start = ui_text(language, "start")
+    intro = ui_text(language, "index_intro")
     lang = "ru" if ru else "en"
     html = f"""<!doctype html>
 <html lang="{lang}">
@@ -573,8 +681,8 @@ def write_index_html(workspace: Path, data: dict[str, Any], nav: list[tuple[str,
 <body>
   <main>
     <h1>{escape(title)}</h1>
-    <p>{'Чистый финальный пакет по growth funnel workspace.' if ru else 'Clean final package for the growth funnel workspace.'}</p>
-    <a class="start" href="00_index.html">{start}</a>
+    <p>{escape(intro)}</p>
+    <a class="start" href="00_index.html">{escape(start)}</a>
     <div class="index-grid">
       {links}
     </div>
@@ -593,8 +701,8 @@ def render_pages(workspace: Path) -> dict[str, Any]:
     page_builders = {
         "00_index": render_index,
         "01_status_next_steps": render_status,
-        "02_intake_brief": render_intake,
-        "03_research_evidence": render_research,
+        "02_intake_brief": render_segments,
+        "03_research_evidence": render_evidence,
         "04_competitor_map": render_competitors,
         "05_funnel_blueprint": render_blueprint,
         "06_screen_specs": render_screen_specs,
@@ -610,7 +718,7 @@ def render_pages(workspace: Path) -> dict[str, Any]:
     summary = validate_and_write(workspace)
     leaks = final_leakage(workspace)
     summary["rendered"] = True
-    summary["recommendations_ready"] = bool(summary["minimum_gate_satisfied"])
+    summary["recommendations_ready"] = summary.get("phase") == "ready"
     summary["final_index_path"] = str(final_dir(workspace) / "index.html")
     summary["final_leakage"] = leaks
     return summary
