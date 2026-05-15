@@ -204,7 +204,7 @@ Expected agent behavior:
 3. Validate whether the minimum funnel gate is complete.
 4. Compile `runtime/insights.json`.
 5. Render `final/index.html`.
-6. Reply with the final path, scores, blockers, and next step.
+6. Reply first with a clickable Markdown link to `final/index.html`, then scores, blockers, and next step.
 
 ## Example Prompts By Niche
 

@@ -12,6 +12,9 @@ Use this when rendering or reviewing `final/`.
 - Evidence and competitor claims cite source rows by URL or title when available.
 - HTML should make the decision faster to understand than raw Markdown: use callouts, compact tables, evidence/confidence badges, and risk heatmap styling.
 - Markdown should be readable as a standalone expert report, not a runtime dump.
+- Start pages and execution pages must include a plain operational pipeline: what to do, why, what the user gets, and which proof/data is missing.
+- Localized output should use the user's business vocabulary. In Russian output, avoid untranslated internal labels such as "CTA", "guardrail", "support", "skeleton", "ICP", and raw snake_case path names unless they appear inside technical event/file identifiers.
+- The agent's final chat message must lead with a clickable Markdown link to the absolute `final/index.html` file. Prefer the `final_index_chat_link` value returned by `render_final.py`.
 
 ## Insight Layer
 
@@ -52,3 +55,5 @@ Keep legacy filenames for compatibility, but render them in a user-first order:
 - The next step is operational, not a broad brainstorm.
 - `recommendations_ready` is true only when `phase == "ready"`.
 - Russian output does not keep English UI strings such as "Intake brief", "Research evidence", "Previous", or "Next".
+- Russian output explains the launch pipeline in plain language: "что сделать", "зачем", and "что получишь".
+- Final handoff is not just a raw path or shell command; it includes a clickable local-file Markdown link to `final/index.html`.

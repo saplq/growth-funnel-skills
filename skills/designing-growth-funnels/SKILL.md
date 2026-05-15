@@ -36,7 +36,7 @@ Use these principles while synthesizing:
 4. Validate after every meaningful update.
 5. Compile `runtime/insights.json` before rendering. Every recommendation must point to evidence or an explicit assumption.
 6. Render `final/` only after validation, even if some recommendations stay blocked.
-7. Reply with the `final/index.html` path, scores, blockers, and the next smallest useful input. Mention changed runtime files only when useful for debugging.
+7. Finish the chat response with the clickable main HTML link first, then scores, blockers, and the next smallest useful input. Use `final_index_chat_link` from `render_final.py` when available. If building the link manually, use Markdown with an absolute local path: `[Открыть финальный HTML](/absolute/path/final/index.html)` or `[Open final HTML](/absolute/path/final/index.html)`. If the path contains spaces, wrap only the link target in angle brackets. Do not use `file://`, a code block, or an `open ...` command as the primary way to open the report. Mention changed runtime files only when useful for debugging.
 
 Run bundled scripts yourself when filesystem access exists:
 
@@ -56,6 +56,26 @@ The workspace has two layers:
 
 Do not put YAML, CSV, JSON, JSONL, traces, or separate CSS files in `final/`.
 
+## User Language And Business Vocabulary
+
+Write the final package in the user's language. In Russian output, translate agent-internal terms into plain business language:
+
+- use "главная метрика" instead of "KPI" unless the user used KPI;
+- use "действие пользователя" instead of "CTA";
+- use "контрольный риск" instead of "guardrail";
+- use "целевая аудитория" instead of "ICP";
+- use "на чем основано" instead of "support";
+- explain funnel skeletons as human paths, for example "полезный подбор -> телефон -> консультация", not raw snake_case IDs.
+
+Adapt examples to the user's business group and sales motion. A real estate developer, agency, subscription app, marketplace, SaaS team, or education business should not receive the same generic wording. Keep technical identifiers only where they are useful for tracking events, files, APIs, or CRM fields.
+
+Every HTML/Markdown package must include an operational pipeline that answers:
+
+- what to do;
+- why to do it;
+- what the user gets from that step;
+- what data or proof is missing before launch.
+
 `runtime/insights.json` is the synthesis layer. It should contain decision summary, segments, screen recommendations, experiments, risks, evidence refs, assumptions, and confidence. Markdown is the canonical readable report layer; HTML is a visual decision layer with navigation, cards, badges, tables, and risk signals.
 
 ## Minimum Gate
@@ -72,7 +92,7 @@ If the gate is incomplete, create the workspace, mark blocked items, and ask at 
 
 After the gate is complete, ask at most 2 topic-specific clarify questions only when they can materially improve the decision. Prefer questions about priority segment, current weak screen or bot step, main objection, first-value moment, proof gap, or experiment owner.
 
-Recommendations are only ready when the minimum gate is satisfied, research readiness is sufficient, and contradictions are resolved. A polished final pack may still be a draft; do not describe it as ready when `phase` is not `ready`.
+Recommendations are only ready when the minimum gate is satisfied, research readiness is sufficient, the competitor map has at least 3 sourced competitors, and contradictions are resolved. A polished final pack may still be a draft; do not describe it as ready when `phase` is not `ready`.
 
 ## Research Rules
 

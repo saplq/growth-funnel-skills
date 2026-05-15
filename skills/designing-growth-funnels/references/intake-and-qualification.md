@@ -69,4 +69,6 @@ Recommendations are ready only when:
 
 - the minimum gate is satisfied;
 - research readiness is at least 60;
+- at least 3 sourced competitor rows are recorded;
+- evidence gaps are resolved;
 - contradictions are resolved.

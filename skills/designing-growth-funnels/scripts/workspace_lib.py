@@ -14,7 +14,9 @@ from typing import Any
 from urllib.parse import urlparse
 
 
-VERSION = "2.1.0"
+VERSION = "2.2.0"
+
+READY_MIN_COMPETITORS = 3
 
 RUNTIME_FILES = [
     "run_state.json",
@@ -117,7 +119,7 @@ def topic_titles(language: str = "English") -> dict[str, str]:
             "research_evidence": "Данные и допущения",
             "competitor_map": "Конкурентные паттерны",
             "funnel_blueprint": "Карта воронки",
-            "screen_specs": "Плейбук экранов",
+            "screen_specs": "Сценарии экранов/бота",
             "tracking_plan": "Метрики и события",
             "experiment_card": "Следующий эксперимент",
             "risks_and_gaps": "Риски и пробелы",
@@ -144,8 +146,8 @@ def ui_text(language: str, key: str) -> str:
         "previous": "Назад" if ru else "Previous",
         "next": "Далее" if ru else "Next",
         "start": "Начать" if ru else "Start",
-        "brand": "Growth Funnel",
-        "index_intro": "Краткий маршрут по финальному пакету воронки." if ru else "A compact route through the final funnel package.",
+        "brand": "Воронка роста" if ru else "Growth Funnel",
+        "index_intro": "Короткий рабочий маршрут: что сделать, зачем это нужно и какой результат получить." if ru else "A compact working route: what to do, why it matters, and what result to expect.",
     }
     return values.get(key, key)
 
@@ -490,29 +492,35 @@ def source_domain(url: str) -> str:
     return parsed.netloc.lower().removeprefix("www.")
 
 
+def recommendations_are_ready(data: dict[str, Any], research_score: int, gaps: list[str], conflicts: list[str]) -> bool:
+    gate = minimum_gate_satisfied(data.get("intake", {}))
+    return gate and research_score >= 60 and not gaps and not conflicts
+
+
 def evidence_gaps(data: dict[str, Any]) -> list[str]:
+    ru = is_russian(data)
     sources = data.get("sources", [])
     competitors = data.get("competitors", [])
     gaps: list[str] = []
     if not sources:
-        gaps.append("source registry has no current sources")
-    if len(competitors) < 3:
-        gaps.append("competitor map has fewer than 3 competitors")
+        gaps.append("нет свежих источников в реестре данных" if ru else "source registry has no current sources")
+    if len(competitors) < READY_MIN_COMPETITORS:
+        gaps.append(f"карта конкурентов содержит меньше {READY_MIN_COMPETITORS} конкурентов" if ru else f"competitor map has fewer than {READY_MIN_COMPETITORS} competitors")
     current_sensitive = {"pricing", "changelog", "current_practice", "competitor"}
     for source in sources:
         label = source.get("url") or source.get("title") or "source"
         for field in ["url", "title", "publisher", "source_type", "freshness", "confidence"]:
             if not present(source.get(field)):
-                gaps.append(f"source missing {field}: {label}")
+                gaps.append(f"у источника не заполнено поле {field}: {label}" if ru else f"source missing {field}: {label}")
         if not present(source.get("used_in")):
-            gaps.append(f"source missing used_in: {label}")
+            gaps.append(f"не указано, где используется источник: {label}" if ru else f"source missing used_in: {label}")
         source_type = str(source.get("source_type", "")).strip().lower()
         if source_type in current_sensitive and not present(source.get("retrieved_at")):
-            gaps.append(f"{source_type} source missing retrieved_at: {label}")
+            gaps.append(f"у источника типа {source_type} нет даты проверки: {label}" if ru else f"{source_type} source missing retrieved_at: {label}")
     for row in competitors:
         if (present(row.get("pricing")) or present(row.get("source"))) and not present(row.get("retrieved_at")):
             label = row.get("competitor") or row.get("domain") or "competitor"
-            gaps.append(f"competitor pricing/source missing retrieved_at: {label}")
+            gaps.append(f"у строки конкурента нет даты проверки: {label}" if ru else f"competitor pricing/source missing retrieved_at: {label}")
     return dedupe(gaps)
 
 
@@ -599,14 +607,18 @@ def artifact_status(data: dict[str, Any]) -> dict[str, str]:
     sources = data.get("sources", [])
     competitors = data.get("competitors", [])
     results = data.get("agent_results", [])
+    research = research_readiness_score(data)
+    ev_gaps = evidence_gaps(data)
+    conflicts = contradictions(data)
+    ready = recommendations_are_ready(data, research, ev_gaps, conflicts)
     return {
         "runtime/intake.json": "ready" if not missing_fields(intake) else "partial" if any(present(v) for v in intake.values()) else "empty",
         "runtime/sources.jsonl": "ready" if sources else "empty",
-        "runtime/competitors.csv": "ready" if len(competitors) >= 3 else "partial" if competitors else "empty",
+        "runtime/competitors.csv": "ready" if len(competitors) >= READY_MIN_COMPETITORS else "partial" if competitors else "empty",
         "runtime/agent_results.jsonl": "ready" if results else "empty",
         "runtime/gaps.json": "ready",
         "runtime/insights.json": "ready" if data.get("insights") else "empty",
-        "final": "draft" if gate else "blocked",
+        "final": "ready" if ready else "draft" if gate else "blocked",
     }
 
 
@@ -614,9 +626,9 @@ def next_best_input(data: dict[str, Any], limit: int = 3) -> list[str]:
     ru = is_russian(data)
     questions = {
         "offer": "Какой оффер и какой результат он обещает?" if ru else "What is the offer and promised result?",
-        "icp_or_primary_persona": "Кто основной ICP или primary persona?" if ru else "Who is the ICP or primary persona?",
-        "target_kpi": "Какой один target KPI должна улучшить воронка?" if ru else "What one target KPI should this funnel improve?",
-        "primary_channel": "Какой primary channel даст трафик или лидов?" if ru else "What primary channel will bring traffic or leads?",
+        "icp_or_primary_persona": "Кто основная целевая аудитория или ключевой тип клиента?" if ru else "Who is the ICP or primary persona?",
+        "target_kpi": "Какую одну главную метрику должна улучшить воронка?" if ru else "What one target KPI should this funnel improve?",
+        "primary_channel": "Какой основной канал даст трафик или лидов?" if ru else "What primary channel will bring traffic or leads?",
         "proof_assets_or_explicit_no_proof_yet": "Есть доказательства результата, или явно пометить, что доказательств пока нет?" if ru else "Do you have proof assets, or should this be marked no proof yet?",
     }
     priority = ["target_kpi", "offer", "icp_or_primary_persona", "primary_channel", "proof_assets_or_explicit_no_proof_yet"]
@@ -672,6 +684,34 @@ def select_funnel_skeleton(data: dict[str, Any]) -> tuple[str, str]:
     return "diagnostic_to_roadmap", "Default to diagnosis-first until first-value timing is proven."
 
 
+def skeleton_label(skeleton: str, ru: bool) -> str:
+    values_ru = {
+        "demo_led": "консультация с подготовленным контекстом",
+        "diagnostic_to_roadmap": "полезная диагностика, затем понятный план действий",
+        "trial_to_value": "быстрый первый результат, затем следующий шаг",
+        "lead_magnet_to_consult": "полезный подбор, затем телефон и консультация",
+    }
+    values_en = {
+        "demo_led": "assisted consultation path",
+        "diagnostic_to_roadmap": "diagnosis to roadmap",
+        "trial_to_value": "trial to first value",
+        "lead_magnet_to_consult": "lead magnet to consultation",
+    }
+    values = values_ru if ru else values_en
+    return values.get(skeleton, skeleton.replace("_", " "))
+
+
+def decision_label(value: str, ru: bool) -> str:
+    if not ru:
+        return value
+    values = {
+        "go_to_funnel_build": "можно собирать рабочий черновик воронки",
+        "strategy_or_research_sprint": "сначала нужен короткий стратегический/исследовательский спринт",
+        "no_go_until_proposition_proof_or_measurement_improves": "рано строить ростовую воронку: нужен сильнее оффер, доказательства или измерение",
+    }
+    return values.get(value, value.replace("_", " "))
+
+
 def skeleton_rationale_text(skeleton: str, fallback: str, ru: bool) -> str:
     if not ru:
         return fallback
@@ -699,6 +739,7 @@ def compile_insights(data: dict[str, Any], phase: str) -> dict[str, Any]:
     competitors = data.get("competitors", [])
     gate = minimum_gate_satisfied(intake)
     skeleton, rationale = select_funnel_skeleton(data)
+    path_label = skeleton_label(skeleton, ru)
     rationale_text = skeleton_rationale_text(skeleton, rationale, ru)
     offer = dash_text(intake.get("offer"), ru)
     audience = dash_text(intake.get("icp") or intake.get("primary_persona"), ru)
@@ -717,22 +758,23 @@ def compile_insights(data: dict[str, Any], phase: str) -> dict[str, Any]:
     decision_summary = {
         "status": status,
         "recommendation": (
-            f"Строить путь `{skeleton}` для {audience}: сначала снять ключевое сомнение, затем показать первую ценность и только после этого вести к `{target_kpi}`."
+            f"Строить воронку «{path_label}» для аудитории: {audience}. Сначала снять ключевое сомнение, затем показать первую ценность и только после этого вести к метрике «{target_kpi}»."
             if ru
             else f"Build a `{skeleton}` path for {audience}: resolve the core doubt, show first value, then move users toward `{target_kpi}`."
         ),
         "why": (
-            f"Оффер `{offer}` приходит из канала `{channel}`; выбранный путь снижает риск общего лендинга без понятного первого действия."
+            f"Оффер «{offer}» приходит из канала «{channel}»; выбранный путь снижает риск общего лендинга без понятного первого действия."
             if ru
             else f"The `{offer}` offer comes through `{channel}`; this path reduces the risk of a generic page without a clear first action."
         ),
         "first_action": (
-            "Собрать один приоритетный сегмент, его главное возражение и текущий шаг воронки; затем запускать первый экран или шаг бота только с трекингом."
+            "Собрать один приоритетный сегмент, его главное возражение и текущий шаг воронки; затем запускать первый экран или шаг бота только с записью событий."
             if ru
             else "Lock one priority segment, its main objection, and the current funnel step; then launch the first screen or bot step only with tracking in place."
         ),
         "target_kpi": target_kpi,
         "skeleton": skeleton,
+        "path_label": path_label,
         "rationale": rationale_text,
         "support": support,
     }
@@ -742,7 +784,7 @@ def compile_insights(data: dict[str, Any], phase: str) -> dict[str, Any]:
             "segment": audience,
             "job": dash_text(intake.get("jtbd"), ru),
             "pain": (
-                f"Нужно понять, решает ли `{offer}` их ситуацию без долгого созвона или лишних шагов."
+                f"Нужно понять, решает ли «{offer}» их ситуацию без долгого созвона или лишних шагов."
                 if ru
                 else f"They need to understand whether `{offer}` solves their situation without a long call or extra steps."
             ),
@@ -810,7 +852,7 @@ def build_assumptions(data: dict[str, Any], skeleton: str, ru: bool = False) -> 
     if not proof_assets or truthy(intake.get("explicit_no_proof_yet")):
         assumptions.append({"id": "A3", "statement": "Доказательства нужно подтвердить до обещаний рядом с основным призывом к действию." if ru else "Proof must be validated before claims are used near the primary CTA.", "used_in": "screen_playbook"})
     if not present(intake.get("time_to_first_value_minutes")):
-        assumptions.append({"id": "A4", "statement": (f"Путь `{skeleton}` предполагает, что время до первой ценности еще нужно подтвердить." if ru else f"Skeleton `{skeleton}` assumes first value timing still needs validation."), "used_in": "funnel_map"})
+        assumptions.append({"id": "A4", "statement": (f"Путь «{skeleton_label(skeleton, ru)}» предполагает, что время до первой ценности еще нужно подтвердить." if ru else f"Skeleton `{skeleton}` assumes first value timing still needs validation."), "used_in": "funnel_map"})
     if not assumptions:
         assumptions.append({"id": "A1", "statement": "Текст экранов все еще нужно проверить на языке реальных клиентов перед запуском." if ru else "Screen copy still needs validation against customer language before launch.", "used_in": "screen_playbook"})
     return assumptions
@@ -825,7 +867,7 @@ def build_screen_insights(intake: dict[str, Any], skeleton: str, support: str, c
             {
                 "stage": "Вход",
                 "target_belief": "Это про мою ситуацию.",
-                "content": f"Один экран с обещанием `{offer}`, сегментом `{audience}` и примером результата.",
+                "content": f"Один экран с обещанием «{offer}», сегментом «{audience}» и примером результата.",
                 "cta": "Начать диагностику",
                 "metric": "Начали ввод / увидели вход",
                 "guardrail": "доля нецелевых стартов",
@@ -847,7 +889,7 @@ def build_screen_insights(intake: dict[str, Any], skeleton: str, support: str, c
             {
                 "stage": "Первая ценность",
                 "target_belief": "Проблема конкретна и решаема.",
-                "content": f"Показать 1 главное узкое место и маршрут к `{target_kpi}`.",
+                "content": f"Показать 1 главное узкое место и маршрут к метрике «{target_kpi}».",
                 "cta": "Показать план",
                 "metric": "Увидели план / получили разбор",
                 "guardrail": "доля резервных разборов",
@@ -919,11 +961,12 @@ def build_experiment_insights(intake: dict[str, Any], skeleton: str, support: st
     audience = dash_text(intake.get("icp") or intake.get("primary_persona"), ru)
     target_kpi = dash_text(intake.get("target_kpi"), ru)
     channel = dash_text(intake.get("primary_channel"), ru)
+    path_label = skeleton_label(skeleton, ru)
     if ru:
         return [
             {
                 "name": "Проверка первого ценностного шага",
-                "hypothesis": f"Если путь `{skeleton}` даст {audience} конкретный разбор до основного призыва к действию, то `{target_kpi}` вырастет для трафика из `{channel}`.",
+                "hypothesis": f"Если путь «{path_label}» даст аудитории «{audience}» конкретный разбор до основного призыва к действию, то метрика «{target_kpi}» вырастет для трафика из «{channel}».",
                 "change": "Запустить один входной экран или шаг бота с примером диагностики и одним призывом к действию.",
                 "primary_metric": target_kpi,
                 "guardrail": "качество лидов, потери событий, время до первого результата",
@@ -999,8 +1042,9 @@ def validate_and_write(workspace: Path) -> dict[str, Any]:
     qualification = qualification_score(data)
     research = research_readiness_score(data)
     gate = not missing
+    ready = recommendations_are_ready(data, research, ev_gaps, conflicts)
     statuses = artifact_status(data)
-    phase = "ready" if gate and research >= 60 and not conflicts else "research" if gate else "intake"
+    phase = "ready" if ready else "research" if gate else "intake"
     questions = next_best_input(data)
     insights = compile_insights(data, phase)
 
@@ -1081,37 +1125,46 @@ def validate_and_write(workspace: Path) -> dict[str, Any]:
         "artifact_status": statuses,
         "source_count": len(data["sources"]),
         "competitor_count": len(data["competitors"]),
-        "recommendations_ready": phase == "ready",
+        "recommendations_ready": ready,
     }
     return summary
 
 
 def build_warnings(data: dict[str, Any], gaps: list[str], conflicts: list[str]) -> list[str]:
+    ru = is_russian(data)
     warnings = []
     if gaps:
-        warnings.append("research evidence is incomplete")
+        warnings.append("данных для уверенного решения пока не хватает" if ru else "research evidence is incomplete")
     if conflicts:
-        warnings.append("conflicting proof state needs resolution")
+        warnings.append("состояние доказательств противоречиво и требует уточнения" if ru else "conflicting proof state needs resolution")
     ttfv = numeric_value(data.get("intake", {}).get("time_to_first_value_minutes"))
     if ttfv is not None and ttfv > 10:
-        warnings.append("time to first value is long; consider demo, concierge setup, or sample-data preview")
+        warnings.append("первая ценность появляется поздно; нужен пример результата, демо или concierge-разбор" if ru else "time to first value is long; consider demo, concierge setup, or sample-data preview")
     return warnings
 
 
 def auto_collect_tasks(data: dict[str, Any]) -> list[str]:
+    ru = is_russian(data)
     tasks = []
     if len(data.get("sources", [])) < 3:
-        tasks.append("collect at least 3 current external sources with retrieval dates")
-    if len(data.get("competitors", [])) < 3:
-        tasks.append("collect at least 3 competitor rows with pricing, CTA, onboarding, and source")
+        tasks.append("собрать минимум 3 свежих внешних источника с датой проверки" if ru else "collect at least 3 current external sources with retrieval dates")
+    if len(data.get("competitors", [])) < READY_MIN_COMPETITORS:
+        tasks.append(f"собрать минимум {READY_MIN_COMPETITORS} конкурента: цена, призыв к действию, первые шаги пользователя, источник и дата проверки" if ru else f"collect at least {READY_MIN_COMPETITORS} competitor rows with pricing, CTA, onboarding, and source")
     if not data.get("agent_results"):
-        tasks.append("record at least one research or synthesis result when specialist work is used")
+        tasks.append("записать минимум один результат исследования или синтеза, если использовалась отдельная исследовательская работа" if ru else "record at least one research or synthesis result when specialist work is used")
     return tasks
 
 
 def blocked_recommendations(data: dict[str, Any]) -> list[str]:
     if minimum_gate_satisfied(data.get("intake", {})):
         return []
+    if is_russian(data):
+        return [
+            "карта воронки",
+            "сценарии экранов/бота",
+            "интерпретация метрик",
+            "решение по эксперименту",
+        ]
     return [
         "funnel blueprint",
         "screen specs",

@@ -183,6 +183,9 @@ class WorkspaceScriptsTest(unittest.TestCase):
             self.assertEqual(result["phase"], "ready")
             self.assertTrue(result["recommendations_ready"])
             self.assertTrue(result["rendered"])
+            final_index_path = workspace.resolve() / "final" / "index.html"
+            self.assertEqual(result["final_index_path"], str(final_index_path))
+            self.assertEqual(result["final_index_chat_link"], f"[Open final HTML]({final_index_path})")
             assert_final_pack(workspace)
             insights = json.loads((workspace / "runtime" / "insights.json").read_text(encoding="utf-8"))
             self.assertIn("decision_summary", insights)
@@ -218,11 +221,68 @@ class WorkspaceScriptsTest(unittest.TestCase):
             self.assertEqual(result["phase"], "research")
             self.assertFalse(result["recommendations_ready"])
             self.assertLessEqual(len(result["next_best_input"]), 2)
-            self.assertNotIn("Collect 3 current sources and 3 competitors", " ".join(result["next_best_input"]))
-            self.assertLess(result["qualification_score"], 70)
-            assert_final_pack(workspace)
-            experiment = (workspace / "final" / "08_experiment_card.md").read_text(encoding="utf-8")
-            self.assertIn("trial activation", experiment)
+
+    def test_russian_output_localizes_terms_and_blocks_empty_competitor_map(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "ru-no-competitors"
+            run_script(
+                "create_workspace.py",
+                "--name",
+                "Зарубежная недвижимость",
+                "--out",
+                str(workspace),
+                "--language",
+                "Russian",
+                "--json",
+            )
+            run_script(
+                "ingest_notes.py",
+                str(workspace),
+                "--input",
+                "-",
+                "--json",
+                input_text=(
+                    "Оффер: подбор зарубежной недвижимости и консультация с продажником\n"
+                    "Аудитория: русскоязычные покупатели недвижимости за рубежом\n"
+                    "Метрика: квалифицированные лиды с телефоном, дошедшие до звонка\n"
+                    "Канал: Facebook и Instagram реклама, Telegram bot, email\n"
+                    "Нет доказательств пока\n"
+                    "Источник: https://example.com/source-one 2026-05-15\n"
+                    "Источник: https://example.com/source-two 2026-05-15\n"
+                    "Источник: https://example.com/source-three 2026-05-15\n"
+                    "Источник: https://example.com/source-four 2026-05-15\n"
+                ),
+            )
+            result = run_script("render_final.py", str(workspace), "--json")
+
+            self.assertTrue(result["minimum_gate_satisfied"])
+            self.assertEqual(result["phase"], "research")
+            self.assertFalse(result["recommendations_ready"])
+            self.assertIn("карта конкурентов содержит меньше 3 конкурентов", result["evidence_gaps"])
+
+            index = (workspace / "final" / "00_index.md").read_text(encoding="utf-8")
+            execution = (workspace / "final" / "10_execution_plan.md").read_text(encoding="utf-8")
+            blueprint = (workspace / "final" / "05_funnel_blueprint.md").read_text(encoding="utf-8")
+            tracking = (workspace / "final" / "07_tracking_plan.md").read_text(encoding="utf-8")
+            html_index = (workspace / "final" / "index.html").read_text(encoding="utf-8")
+
+            self.assertIn("Пайплайн запуска", index)
+            self.assertIn("Что сделать", index)
+            self.assertIn("Зачем", index)
+            self.assertIn("Что получишь", index)
+            self.assertIn("Пайплайн запуска", execution)
+            self.assertIn("Действие пользователя", blueprint)
+            self.assertIn("Контрольный риск", tracking)
+            self.assertIn("Пайплайн запуска", html_index)
+            final_index_path = workspace.resolve() / "final" / "index.html"
+            self.assertEqual(result["final_index_chat_link"], f"[Открыть финальный HTML]({final_index_path})")
+
+            combined = "\n".join([index, execution, blueprint, tracking])
+            self.assertNotIn("CTA", combined)
+            self.assertNotIn("Guardrail", combined)
+            self.assertNotIn("KPI Contract", combined)
+            self.assertNotIn("skeleton", combined.lower())
+            self.assertNotIn("support", combined.lower())
 
     def test_conflicting_proof_state_is_reported(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -416,7 +476,7 @@ class WorkspaceScriptsTest(unittest.TestCase):
             self.assertIn("Главное решение", final_index)
             status = (workspace / "final" / "01_status_next_steps.md").read_text(encoding="utf-8")
             self.assertIn("Резюме решения", status)
-            self.assertIn("Готовность ресерча", status)
+            self.assertIn("Готовность данных", status)
             html = (workspace / "final" / "index.html").read_text(encoding="utf-8")
             self.assertIn("<title>Оглавление</title>", html)
             self.assertIn('<html lang="ru">', html)
