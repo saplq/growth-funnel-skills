@@ -143,65 +143,38 @@ If your agent has another skills directory, copy `skills/designing-growth-funnel
 
 After installation, write a normal business request. You do not need to mention scripts or runtime files.
 
-Example:
+Quick template:
 
 ```text
 Use $designing-growth-funnels.
 
 Build a marketing growth funnel and final report in English for this business.
 
-Company: NovaHabitat Development
-
-Offer:
-We sell new-build apartments and investment units to Ukrainian buyers living in Europe. The service includes property selection, purchase guidance, payment process, tax basics, and rental setup support.
+Business:
+[What the business sells]
 
 Audience:
-- Ukrainians living in Europe, especially Spain, Poland, Germany, Czech Republic, and Portugal.
-- Entrepreneurs, IT specialists, and families with available capital from EUR 80k.
-- Buyers who want to preserve capital, relocate, or buy a rental property.
+[Who the funnel is for]
+
+Primary channel:
+[Search, Meta Ads, LinkedIn, email, Telegram, webinars, partnerships, etc.]
+
+Target KPI:
+[The one metric the funnel should improve]
 
 Current funnel:
-1. We collect an email database through partners, lead magnets, and past webinars.
-2. We try to enrich email contacts with phone numbers.
-3. We run Meta Ads targeting Ukrainians in Europe.
-4. Traffic goes to a Telegram bot.
-5. The bot qualifies budget, preferred country, buying goal, decision timing, and whether the person wants a call.
-6. Qualified leads go to a webinar or a manager consultation.
-7. After the webinar, sales managers try to book a property selection call.
-
-Primary channel: Meta Ads + email reactivation + Telegram bot + webinars.
-Target KPI: Qualified consultation booked / Telegram bot started.
+[How people discover, evaluate, convert, and return today]
 
 Current metrics:
-- Meta cost per Telegram bot start: about EUR 9-14.
-- Bot started to qualified lead: about 18%.
-- Webinar registration to attendance: about 32%.
-- Consultation booked after webinar: about 9%.
-- Sales cycle: 2 weeks to 4 months.
+[Any rough conversion rates, costs, revenue, activation, attendance, calls booked, etc.]
 
 Proof:
-- 37 properties sold to Ukrainian clients in the last 18 months.
-- 6 client video testimonials.
-- One case study from a family in Warsaw buying an apartment in Spain for relocation.
-- One case study from a Prague-based investor buying a rental unit.
+[Case studies, testimonials, customers, usage, waitlist, sales, or write "no proof yet"]
 
 Constraints:
-- The current website is weak, so avoid a heavy website redesign for now.
-- Telegram bot already exists and can be rewritten.
-- The team can prepare one webinar per week.
-- Improved funnel should launch in 14 days.
-- We cannot promise guaranteed investment returns.
-- The tone must feel premium and trustworthy, not aggressive or infobusiness-like.
+[Budget, team, timeline, compliance, brand tone, tech limits]
 
-Please produce:
-- audience segmentation;
-- funnel structure;
-- improved Telegram bot flow;
-- webinar mechanism;
-- screen specs for landing / bot / webinar / consultation flow;
-- tracking plan;
-- first experiment card;
-- risks, gaps, and next step.
+Please create segmentation, funnel blueprint, screen or bot specs, tracking plan, first experiment card, risks, gaps, and next step.
 ```
 
 Expected agent behavior:
@@ -263,6 +236,52 @@ Create segmentation, funnel blueprint, onboarding screens, tracking plan, first 
 </details>
 
 <details>
+<summary><strong>Pet project / indie AI tool</strong></summary>
+
+```text
+Use $designing-growth-funnels.
+
+Build a growth funnel and final report in English for an indie AI tool.
+
+Project: ClipForge
+Offer: turn long YouTube videos or podcasts into short clips, titles, captions, and posting ideas in under 5 minutes.
+Audience: solo creators, small podcast teams, and newsletter writers who repurpose long-form content.
+Primary channel: X/Twitter demos + Reddit communities + Product Hunt launch.
+Target KPI: First clip exported / signup.
+Current funnel: social demo post -> landing page -> free signup -> upload URL -> AI generates clips -> export -> paid upgrade.
+Current metrics: waitlist 430 people, landing to waitlist 11%, demo post CTR about 3.2%, no paid users yet.
+Proof: 37 beta users exported at least one clip, 9 users posted clips publicly, 4 testimonials from creators.
+Constraints: solo builder, no paid ads, launch in 21 days, avoid making copyright or platform-policy claims.
+
+Create positioning segments, launch funnel, activation flow, landing/onboarding specs, tracking plan, first experiment, risks, gaps, and next step.
+```
+
+</details>
+
+<details>
+<summary><strong>Pet project / consumer mobile app</strong></summary>
+
+```text
+Use $designing-growth-funnels.
+
+Build a growth funnel and final report in English for a consumer mobile pet project.
+
+Project: TinyHabits Garden
+Offer: a lightweight habit tracker where each completed habit grows a small virtual garden.
+Audience: students and young professionals who want a simple, friendly habit app without complex productivity systems.
+Primary channel: TikTok organic videos + App Store search + friend invites.
+Target KPI: D7 retained users / app install.
+Current funnel: TikTok video -> App Store page -> install -> first habit created -> first 3-day streak -> invite a friend.
+Current metrics: 1,200 installs, 54% create first habit, 21% reach a 3-day streak, D7 retention 12%.
+Proof: 180 users completed at least 10 habits, 32 App Store reviews with 4.6 average rating.
+Constraints: no backend engineer, small design budget, no paid ads, avoid manipulative streak mechanics.
+
+Create user segments, activation and retention funnel, app screen specs, tracking plan, first experiment, risks, gaps, and next step.
+```
+
+</details>
+
+<details>
 <summary><strong>Telegram bot / webinar funnel</strong></summary>
 
 ```text
@@ -309,6 +328,29 @@ Create demand-side and supply-side segmentation, funnel blueprint, screen specs,
 </details>
 
 <details>
+<summary><strong>E-commerce / physical product</strong></summary>
+
+```text
+Use $designing-growth-funnels.
+
+Build a growth funnel and final report in English for a direct-to-consumer e-commerce brand.
+
+Brand: NomadBrew
+Offer: compact travel coffee kit for remote workers, van-life travelers, and frequent flyers.
+Audience: remote workers and travelers aged 25-45 who care about good coffee outside the home.
+Primary channel: Meta Ads + TikTok organic + email capture.
+Target KPI: Purchase completed / product page viewed.
+Current funnel: short video ad -> product page -> bundle offer -> checkout -> post-purchase email -> review/referral.
+Current metrics: product page conversion 2.1%, add-to-cart 7.8%, checkout completion 46%, AOV USD 74.
+Proof: 1,800 units sold, 240 customer reviews, 4.7 average rating, UGC from travel creators.
+Constraints: limited inventory for 6 weeks, shipping only to US/EU, avoid discount-heavy positioning.
+
+Create segmentation, landing/product-page flow, offer structure, tracking plan, first experiment, risks, gaps, and next step.
+```
+
+</details>
+
+<details>
 <summary><strong>Local service business</strong></summary>
 
 ```text
@@ -327,6 +369,29 @@ Proof: 12 years in business, 900+ implant cases, doctor credentials, patient rev
 Constraints: healthcare compliance, no unrealistic outcome promises, clinic has limited consultation slots.
 
 Create segmentation, landing/WhatsApp flow, trust proof plan, tracking plan, first experiment, risks, and next step.
+```
+
+</details>
+
+<details>
+<summary><strong>Nonprofit / community campaign</strong></summary>
+
+```text
+Use $designing-growth-funnels.
+
+Build a growth funnel and final report in English for a nonprofit community campaign.
+
+Organization: CityWarmth
+Offer: help residents sponsor winter kits for newly arrived refugee families.
+Audience: local residents, small businesses, churches, and community groups who want a concrete way to help.
+Primary channel: local partnerships + Facebook groups + email newsletter + community events.
+Target KPI: Sponsor signup completed / campaign page viewed.
+Current funnel: partner post -> campaign page -> kit sponsorship form -> donation/payment -> thank-you email -> referral/share.
+Current metrics: campaign page conversion 3.5%, average donation USD 58, email CTR 6.2%, referral share rate 8%.
+Proof: 740 kits delivered last winter, photos from distribution events, partner endorsements from 12 local groups.
+Constraints: protect beneficiary privacy, avoid guilt-based messaging, campaign runs for 30 days.
+
+Create donor segments, campaign funnel, page/email specs, tracking plan, first experiment, risks, gaps, and next step.
 ```
 
 </details>
