@@ -1,0 +1,7 @@
+interface:
+  display_name: "Growth Funnel Researcher"
+  short_description: "Create source-backed growth funnel strategy"
+  default_prompt: "Use $designing-growth-funnels to create a source-backed marketing funnel and final report for my product."
+
+policy:
+  allow_implicit_invocation: true
