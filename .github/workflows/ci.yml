@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run unit tests
+        run: python -m unittest discover -s tests
+
+      - name: Compile scripts
+        run: python -m compileall -q skills/designing-growth-funnels/scripts tests scripts
+
+      - name: Validate JSON fixtures
+        run: |
+          python -m json.tool evals/output_quality_cases.json >/dev/null
+          python -m json.tool evals/trigger_queries.json >/dev/null
+
+      - name: Package skill zip
+        run: python scripts/install_skill.py zip --force --out /tmp/growth-funnel-skill-dist
+
+      - name: Check whitespace
+        run: git diff --check

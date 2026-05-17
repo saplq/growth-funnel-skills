@@ -38,3 +38,5 @@ Each screen should define:
 ## Recommendation Rule
 
 Keep each stage tied to one target belief, one CTA, one primary metric, one guardrail, and one support reference. If the minimum gate is missing, mark recommendations blocked instead of filling gaps with generic copy.
+
+Variant bundles should stay compact: 2-3 copy, action, route, proof-placement, or qualification changes with hypothesis, target segment, measurement event, proof requirement, and the same claim/source/assumption coverage as the parent recommendation.

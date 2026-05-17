@@ -53,6 +53,64 @@ def yes_no(value: bool, ru: bool) -> str:
     return ("да" if value else "нет") if ru else ("yes" if value else "no")
 
 
+def reviewer_status_label(value: Any, ru: bool) -> str:
+    text = str(value or "")
+    if not ru:
+        return {
+            "not_required": "not required",
+            "required": "approval required",
+            "approved": "approved",
+        }.get(text, text or "-")
+    return {
+        "not_required": "не требуется",
+        "required": "требуется одобрение",
+        "approved": "одобрено",
+    }.get(text, text or "не указано")
+
+
+def reviewer_support_refs(row: dict[str, Any]) -> str:
+    return "; ".join(
+        item
+        for item in [
+            ", ".join(list_items(row.get("claim_ids"))),
+            ", ".join(list_items(row.get("source_ids"))),
+            ", ".join(list_items(row.get("assumption_ids"))),
+        ]
+        if item
+    )
+
+
+def reviewer_item_table(rows: list[dict[str, Any]], ru: bool) -> str:
+    headers = ("Что проверить", "Объект", "Риск", "Причина", "На чем основано") if ru else ("Review item", "Target", "Risk", "Reason", "Support")
+    if not rows:
+        empty = "нет обязательных проверок" if ru else "no required review items"
+        return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} |\n| --- | --- | --- | --- | --- |\n| {empty} | - | - | - | - |"
+    body = "\n".join(
+        (
+            f"| {table_cell(row.get('review_type'), ru)} | {table_cell(row.get('target_id'), ru)} | "
+            f"{table_cell(row.get('risk_level'), ru)} | {table_cell(row.get('reason'), ru)} | "
+            f"{table_cell(reviewer_support_refs(row), ru)} |"
+        )
+        for row in rows
+    )
+    return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} |\n| --- | --- | --- | --- | --- |\n{body}"
+
+
+def reviewer_approval_section(approval: dict[str, Any], ru: bool) -> str:
+    if not isinstance(approval, dict) or not approval:
+        return "-" if not ru else "не указано"
+    rows = [
+        ("Статус" if ru else "Status", reviewer_status_label(approval.get("status"), ru)),
+        ("Требуется" if ru else "Required", yes_no(bool(approval.get("required")), ru)),
+        ("Одобрено" if ru else "Approved", yes_no(bool(approval.get("approved")), ru)),
+        ("Кем" if ru else "Approved by", approval.get("approved_by")),
+        ("Когда" if ru else "Approved at", approval.get("approved_at")),
+        ("Блокер" if ru else "Blocked reason", approval.get("blocked_reason")),
+    ]
+    review_items = approval.get("review_items") if isinstance(approval.get("review_items"), list) else []
+    return f"{rows_table(rows, 'Поле' if ru else 'Field', 'Значение' if ru else 'Value', ru)}\n\n{reviewer_item_table(review_items, ru)}"
+
+
 def confidence_label(value: str, ru: bool) -> str:
     normalized = str(value or "").lower()
     if ru:
@@ -102,6 +160,7 @@ def usage_label(value: Any, ru: bool) -> str:
         "funnel_map": "карта воронки",
         "tracking_plan": "метрики и события",
         "experiment": "первый тест",
+        "promise_proof": "проверка обещания и доказательства",
         "all recommendations": "все рекомендации",
     }
     return values.get(text, text.replace("_", " "))
@@ -294,6 +353,7 @@ def render_status(data: dict[str, Any]) -> str:
     state = data["state"]
     item = insights(data)
     summary = item.get("decision_summary", {}) if isinstance(item.get("decision_summary"), dict) else {}
+    reviewer_approval = item.get("reviewer_approval") if isinstance(item.get("reviewer_approval"), dict) else {}
     missing = state.get("critical_missing_fields", [])
     next_input = state.get("next_best_input", [])
     path_label = summary.get("path_label") or skeleton_label(str(summary.get("skeleton") or ""), ru)
@@ -317,6 +377,10 @@ def render_status(data: dict[str, Any]) -> str:
 | Готовность к рабочей воронке | {state.get('scores', {}).get('qualification', 0)}/100 |
 | Готовность данных | {state.get('scores', {}).get('research_readiness', 0)}/100 |
 | Решение системы | {table_cell(decision_label(str(state.get('decision') or ''), ru), ru)} |
+
+## Проверка перед запуском
+
+{reviewer_approval_section(reviewer_approval, ru)}
 
 ## Что блокирует уверенность
 
@@ -346,6 +410,10 @@ def render_status(data: dict[str, Any]) -> str:
 | Research readiness | {state.get('scores', {}).get('research_readiness', 0)}/100 |
 | System decision | `{table_cell(state.get('decision'))}` |
 
+## Reviewer Approval
+
+{reviewer_approval_section(reviewer_approval, ru)}
+
 ## What Blocks Confidence
 
 {bullet_list(missing or state.get('evidence_gaps', []), 'no blockers', ru)}
@@ -361,6 +429,7 @@ def render_segments(data: dict[str, Any]) -> str:
     intake = data["intake"]
     item = insights(data)
     segments = item.get("segments", []) if isinstance(item.get("segments"), list) else []
+    niche_profile = item.get("niche_profile") if isinstance(item.get("niche_profile"), dict) else {}
     title = "Сегменты и задачи" if ru else "Segments and Jobs"
     context_title = "Нормализованный контекст" if ru else "Normalized Context"
     proof_title = "Доказательства и метрики" if ru else "Proof and Metrics"
@@ -381,6 +450,10 @@ def render_segments(data: dict[str, Any]) -> str:
 ## {title}
 
 {segments_table(segments, ru)}
+
+## {"Нишевый профиль" if ru else "Niche Profile"}
+
+{niche_profile_section(niche_profile, ru)}
 
 ## {context_title}
 
@@ -404,6 +477,7 @@ def render_evidence(data: dict[str, Any]) -> str:
     item = insights(data)
     evidence_refs = item.get("evidence_refs", []) if isinstance(item.get("evidence_refs"), list) else []
     assumptions = item.get("assumptions", []) if isinstance(item.get("assumptions"), list) else []
+    promise_proof = item.get("promise_proof_model", []) if isinstance(item.get("promise_proof_model"), list) else []
     results = data["agent_results"]
     if ru:
         return f"""# Данные и допущения
@@ -415,6 +489,10 @@ def render_evidence(data: dict[str, Any]) -> str:
 ## Допущения вместо выдуманных фактов
 
 {assumptions_table(assumptions, ru)}
+
+## Проверка обещания и доказательства
+
+{promise_proof_table(promise_proof, ru)}
 
 ## Результаты исследования
 
@@ -434,6 +512,10 @@ def render_evidence(data: dict[str, Any]) -> str:
 
 {assumptions_table(assumptions, ru)}
 
+## Promise-Proof Check
+
+{promise_proof_table(promise_proof, ru)}
+
 ## Specialist Results
 
 {agent_results_section(results, ru)}
@@ -446,7 +528,9 @@ Pricing, changelog, and current-practice claims require retrieval dates. Missing
 
 def render_competitors(data: dict[str, Any]) -> str:
     ru = is_russian(data)
+    item = insights(data)
     competitors = data["competitors"]
+    competitor_synthesis = item.get("competitor_synthesis") if isinstance(item.get("competitor_synthesis"), dict) else {}
     title = "Конкурентные паттерны" if ru else "Competitive Patterns"
     guidance = (
         "Используйте строки конкурентов как наблюдения. Не переносите утверждения в рекомендации без источника и даты получения."
@@ -465,6 +549,10 @@ def render_competitors(data: dict[str, Any]) -> str:
 {missing}
 {competitor_table(competitors, ru)}
 
+## {"Синтез паттернов" if ru else "Pattern Synthesis"}
+
+{competitor_synthesis_section(competitor_synthesis, ru)}
+
 ## {"Как применять" if ru else "How To Use This"}
 
 {guidance}
@@ -476,6 +564,8 @@ def render_blueprint(data: dict[str, Any]) -> str:
     item = insights(data)
     summary = item.get("decision_summary", {}) if isinstance(item.get("decision_summary"), dict) else {}
     screens = item.get("screens", []) if isinstance(item.get("screens"), list) else []
+    channel_synthesis = item.get("channel_synthesis") if isinstance(item.get("channel_synthesis"), dict) else {}
+    current_diff = item.get("current_funnel_diff") if isinstance(item.get("current_funnel_diff"), dict) else {}
     skeleton, fallback_rationale = select_funnel_skeleton(data)
     path_label = summary.get("path_label") or skeleton_label(skeleton, ru)
     rationale = str(summary.get("rationale") or fallback_rationale)
@@ -496,6 +586,14 @@ def render_blueprint(data: dict[str, Any]) -> str:
 ## Маршрут пользователя
 
 {funnel_map_table(screens, ru)}
+
+## Изменения относительно текущей воронки
+
+{current_funnel_diff_section(current_diff, ru)}
+
+## Канальный маршрут
+
+{channel_route_table(channel_synthesis, ru)}
 """
     return f"""# Funnel Map
 
@@ -509,6 +607,14 @@ def render_blueprint(data: dict[str, Any]) -> str:
 ## User Route
 
 {funnel_map_table(screens, ru)}
+
+## Current vs Proposed Changes
+
+{current_funnel_diff_section(current_diff, ru)}
+
+## Channel Route
+
+{channel_route_table(channel_synthesis, ru)}
 """
 
 
@@ -516,6 +622,7 @@ def render_screen_specs(data: dict[str, Any]) -> str:
     ru = is_russian(data)
     item = insights(data)
     screens = item.get("screens", []) if isinstance(item.get("screens"), list) else []
+    variants = item.get("variant_bundles", []) if isinstance(item.get("variant_bundles"), list) else []
     gate = minimum_gate_satisfied(data["intake"])
     blocked = ""
     if not gate:
@@ -528,6 +635,10 @@ def render_screen_specs(data: dict[str, Any]) -> str:
     return f"""# {title}
 
 {blocked}{screen_table(screens, ru)}
+
+## {"Варианты текста и действий" if ru else "Variant Bundles"}
+
+{variant_bundle_table(variants, ru)}
 """
 
 
@@ -535,6 +646,8 @@ def render_tracking(data: dict[str, Any]) -> str:
     ru = is_russian(data)
     item = insights(data)
     screens = item.get("screens", []) if isinstance(item.get("screens"), list) else []
+    channel_synthesis = item.get("channel_synthesis") if isinstance(item.get("channel_synthesis"), dict) else {}
+    niche_profile = item.get("niche_profile") if isinstance(item.get("niche_profile"), dict) else {}
     target_kpi = dash(data["intake"].get("target_kpi"), ru)
     title = "Метрики и события" if ru else "Tracking and KPIs"
     blocked = ""
@@ -554,6 +667,14 @@ def render_tracking(data: dict[str, Any]) -> str:
 ## {"События по шагам" if ru else "Events By Step"}
 
 {tracking_table(screens, ru)}
+
+## {"Канальные события" if ru else "Channel Events"}
+
+{channel_events_table(channel_synthesis, ru)}
+
+## {"События профиля" if ru else "Profile Event Suggestions"}
+
+{niche_events_table(niche_profile, ru)}
 """
 
 
@@ -575,6 +696,10 @@ def render_experiment(data: dict[str, Any]) -> str:
     return f"""# {title}
 
 {experiment_table(experiments, ru)}
+
+## {"Пороги качества эксперимента" if ru else "Experiment Quality Gates"}
+
+{experiment_quality_table(experiments, ru)}
 """
 
 
@@ -695,6 +820,66 @@ def funnel_map_table(rows: list[dict[str, Any]], ru: bool) -> str:
     return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} |\n| --- | --- | --- | --- | --- |\n{body}"
 
 
+def change_type_label(value: Any, ru: bool) -> str:
+    text = str(value or "").strip()
+    if not ru:
+        return text or "-"
+    return {
+        "keep": "оставить",
+        "replace": "заменить",
+        "add": "добавить",
+        "remove": "убрать",
+        "instrument": "измерить",
+        "clarify": "уточнить",
+    }.get(text, text or "не указано")
+
+
+def current_funnel_support_label(row: dict[str, Any], ru: bool) -> str:
+    pieces = []
+    claim_ids = ", ".join(list_items(row.get("claim_ids")))
+    source_ids = ", ".join(list_items(row.get("source_ids")))
+    assumption_ids = ", ".join(list_items(row.get("assumption_ids")))
+    blocked_reason = dash(row.get("blocked_reason"), ru)
+    if claim_ids:
+        pieces.append(("утверждения: " if ru else "claims: ") + claim_ids)
+    if source_ids:
+        pieces.append(("источники: " if ru else "sources: ") + source_ids)
+    if assumption_ids:
+        pieces.append(("допущения: " if ru else "assumptions: ") + assumption_ids)
+    if blocked_reason not in {"-", "не указано"}:
+        pieces.append(("блокер: " if ru else "blocked: ") + blocked_reason)
+    return "; ".join(pieces) or ("не указано" if ru else "-")
+
+
+def current_funnel_diff_table(rows: list[dict[str, Any]], ru: bool) -> str:
+    headers = (
+        ("Текущий шаг", "Предложенный шаг", "Тип изменения", "Почему", "Событие", "На чем основано")
+        if ru
+        else ("Current step", "Proposed step", "Change", "Reason", "Event", "Support")
+    )
+    if not rows:
+        empty = "текущая воронка не предоставлена" if ru else "current funnel not provided"
+        return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} | {headers[5]} |\n| --- | --- | --- | --- | --- | --- |\n| - | - | - | {empty} | - | - |"
+    body = "\n".join(
+        f"| {table_cell(row.get('current_step'), ru)} | {table_cell(row.get('proposed_step'), ru)} | {table_cell(change_type_label(row.get('change_type'), ru), ru)} | {table_cell(row.get('reason'), ru)} | {table_cell(row.get('measurement_event'), ru)} | {table_cell(current_funnel_support_label(row, ru), ru)} |"
+        for row in rows
+    )
+    return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} | {headers[5]} |\n| --- | --- | --- | --- | --- | --- |\n{body}"
+
+
+def current_funnel_diff_section(diff: dict[str, Any], ru: bool) -> str:
+    status = str(diff.get("status") or "")
+    rows = diff.get("rows") if isinstance(diff.get("rows"), list) else []
+    if status == "missing_current_funnel":
+        message = (
+            "Текущая воронка не предоставлена. Таблица ниже показывает только предложенный маршрут как допущение; она не выдумывает текущие шаги, метрики, каналы, тексты или инструменты."
+            if ru
+            else "No current funnel was provided. The table below shows only the proposed route as an assumption; it does not invent current steps, metrics, channels, copy, or tools."
+        )
+        return f"> **{message}**\n\n{current_funnel_diff_table(rows, ru)}"
+    return current_funnel_diff_table(rows, ru)
+
+
 def screen_table(rows: list[dict[str, Any]], ru: bool) -> str:
     headers = ("Экран/шаг", "Что должен поверить пользователь", "Что показать/спросить", "Действие пользователя", "Что нужно подтвердить", "На чем основано") if ru else ("Screen", "Target belief", "Content", "CTA", "Proof needed", "Support")
     if not rows:
@@ -706,15 +891,142 @@ def screen_table(rows: list[dict[str, Any]], ru: bool) -> str:
     return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} | {headers[5]} |\n| --- | --- | --- | --- | --- | --- |\n{body}"
 
 
+def variant_type_label(value: Any, ru: bool) -> str:
+    text = str(value or "")
+    if not ru:
+        return text or "-"
+    return {
+        "copy": "текст",
+        "cta": "действие",
+        "route": "маршрут",
+        "proof_placement": "доказательство",
+        "qualification": "квалификация",
+    }.get(text, text or "не указано")
+
+
+def variant_change_text(row: dict[str, Any], ru: bool) -> str:
+    return dash(row.get("variant_copy") or row.get("variant_action"), ru)
+
+
+def variant_control_text(row: dict[str, Any], ru: bool) -> str:
+    current_step = str(row.get("current_step") or "").strip()
+    if current_step:
+        return current_step
+    return dash(row.get("control_reference"), ru)
+
+
+def variant_support_label(row: dict[str, Any], ru: bool) -> str:
+    pieces = []
+    claim_ids = ", ".join(list_items(row.get("claim_ids")))
+    source_ids = ", ".join(list_items(row.get("source_ids")))
+    assumption_ids = ", ".join(list_items(row.get("assumption_ids")))
+    blocked_reason = dash(row.get("blocked_reason"), ru)
+    if claim_ids:
+        pieces.append(("утверждения: " if ru else "claims: ") + claim_ids)
+    if source_ids:
+        pieces.append(("источники: " if ru else "sources: ") + source_ids)
+    if assumption_ids:
+        pieces.append(("допущения: " if ru else "assumptions: ") + assumption_ids)
+    if blocked_reason not in {"-", "не указано"}:
+        pieces.append(("блокер: " if ru else "blocked: ") + blocked_reason)
+    return "; ".join(pieces) or ("не указано" if ru else "-")
+
+
+def variant_bundle_table(rows: list[dict[str, Any]], ru: bool) -> str:
+    headers = (
+        ("Вариант", "Шаг", "Тип", "Контроль", "Что меняем", "Гипотеза", "Событие", "Доказательство и опора")
+        if ru
+        else ("Variant", "Stage", "Type", "Control", "Change", "Hypothesis", "Event", "Proof and support")
+    )
+    if not rows:
+        empty = "нет вариантов с понятным событием" if ru else "no variants with a clear event"
+        return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} | {headers[5]} | {headers[6]} | {headers[7]} |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n| - | - | - | - | {empty} | - | - | - |"
+    body = "\n".join(
+        (
+            f"| {table_cell(row.get('variant_id'), ru)} | {table_cell(row.get('stage') or row.get('funnel_stage'), ru)} | "
+            f"{table_cell(variant_type_label(row.get('variant_type'), ru), ru)} | {table_cell(variant_control_text(row, ru), ru)} | "
+            f"{table_cell(variant_change_text(row, ru), ru)} | {table_cell(row.get('hypothesis'), ru)} | "
+            f"{table_cell(row.get('measurement_event'), ru)} | "
+            f"{table_cell('; '.join([dash(row.get('proof_requirement'), ru), variant_support_label(row, ru)]), ru)} |"
+        )
+        for row in rows
+    )
+    return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} | {headers[5]} | {headers[6]} | {headers[7]} |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n{body}"
+
+
 def tracking_table(rows: list[dict[str, Any]], ru: bool) -> str:
     headers = ("Событие", "Шаг", "Главная метрика", "Контрольный риск") if ru else ("Event", "Step", "Primary metric", "Guardrail")
     if not rows:
         return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} |\n| --- | --- | --- | --- |\n| - | - | - | - |"
     body = "\n".join(
-        f"| {event_name(row.get('stage'), ru)} | {table_cell(row.get('stage'), ru)} | {table_cell(row.get('metric'), ru)} | {table_cell(row.get('guardrail'), ru)} |"
+        f"| {table_cell(row.get('event_id') or event_name(row.get('stage'), ru), ru)} | {table_cell(row.get('stage'), ru)} | {table_cell(row.get('metric'), ru)} | {table_cell(row.get('guardrail'), ru)} |"
         for row in rows
     )
     return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} |\n| --- | --- | --- | --- |\n{body}"
+
+
+def channel_route_rows(synthesis: dict[str, Any]) -> list[dict[str, Any]]:
+    if not isinstance(synthesis, dict) or synthesis.get("status") != "matched":
+        return []
+    packs = synthesis.get("packs") if isinstance(synthesis.get("packs"), list) else []
+    rows: list[dict[str, Any]] = []
+    if packs and isinstance(packs[0], dict):
+        primary = packs[0]
+        rows.append(
+            {
+                "role": "primary",
+                "label": primary.get("label"),
+                "route": primary.get("journey"),
+                "event_ids": primary.get("event_ids"),
+                "risk": primary.get("risk"),
+            }
+        )
+    support_loops = synthesis.get("support_loops") if isinstance(synthesis.get("support_loops"), list) else []
+    for loop in support_loops:
+        if not isinstance(loop, dict):
+            continue
+        rows.append(
+            {
+                "role": "support",
+                "label": loop.get("label"),
+                "route": loop.get("support_loop") or loop.get("journey"),
+                "event_ids": loop.get("event_ids"),
+                "risk": loop.get("risk") or loop.get("guardrail"),
+            }
+        )
+    return rows
+
+
+def channel_role_label(value: Any, ru: bool) -> str:
+    text = str(value or "")
+    if not ru:
+        return {"primary": "Primary", "support": "Support loop"}.get(text, dash(value, ru))
+    return {"primary": "основной путь", "support": "поддерживающий цикл"}.get(text, dash(value, ru))
+
+
+def channel_route_table(synthesis: dict[str, Any], ru: bool) -> str:
+    headers = ("Роль", "Канал", "Маршрут", "События", "Риск") if ru else ("Role", "Channel", "Route", "Event IDs", "Risk")
+    rows = channel_route_rows(synthesis)
+    if not rows:
+        empty = "канальный маршрут не распознан" if ru else "no matched channel route"
+        return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} |\n| --- | --- | --- | --- | --- |\n| - | - | {empty} | - | - |"
+    body = "\n".join(
+        f"| {table_cell(channel_role_label(row.get('role'), ru), ru)} | {table_cell(row.get('label'), ru)} | {table_cell(row.get('route'), ru)} | {table_cell(', '.join(list_items(row.get('event_ids'))), ru)} | {table_cell(row.get('risk'), ru)} |"
+        for row in rows
+    )
+    return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} |\n| --- | --- | --- | --- | --- |\n{body}"
+
+
+def channel_events_table(synthesis: dict[str, Any], ru: bool) -> str:
+    headers = ("Канал", "Роль", "События") if ru else ("Channel", "Role", "Event IDs")
+    rows = channel_route_rows(synthesis)
+    if not rows:
+        return f"| {headers[0]} | {headers[1]} | {headers[2]} |\n| --- | --- | --- |\n| - | - | - |"
+    body = "\n".join(
+        f"| {table_cell(row.get('label'), ru)} | {table_cell(channel_role_label(row.get('role'), ru), ru)} | {table_cell(', '.join(list_items(row.get('event_ids'))), ru)} |"
+        for row in rows
+    )
+    return f"| {headers[0]} | {headers[1]} | {headers[2]} |\n| --- | --- | --- |\n{body}"
 
 
 def event_name(stage: Any, ru: bool) -> str:
@@ -723,14 +1035,35 @@ def event_name(stage: Any, ru: bool) -> str:
 
 
 def experiment_table(rows: list[dict[str, Any]], ru: bool) -> str:
-    headers = ("Название", "Гипотеза", "Что меняем", "Главная метрика", "Когда считать успешным", "На чем основано") if ru else ("Name", "Hypothesis", "Change", "Metric", "Decision rule", "Support")
+    headers = ("Название", "Гипотеза", "Что меняем", "Главная метрика", "Событие решения", "Когда считать успешным", "На чем основано") if ru else ("Name", "Hypothesis", "Change", "Metric", "Decision event", "Decision rule", "Support")
     if not rows:
-        return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} | {headers[5]} |\n| --- | --- | --- | --- | --- | --- |\n| - | - | - | - | - | - |"
+        return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} | {headers[5]} | {headers[6]} |\n| --- | --- | --- | --- | --- | --- | --- |\n| - | - | - | - | - | - | - |"
     body = "\n".join(
-        f"| {table_cell(row.get('name'), ru)} | {table_cell(row.get('hypothesis'), ru)} | {table_cell(row.get('change'), ru)} | {table_cell(row.get('primary_metric'), ru)} | {table_cell(row.get('decision_rule'), ru)} | {table_cell(row.get('support'), ru)} |"
+        f"| {table_cell(row.get('name'), ru)} | {table_cell(row.get('hypothesis'), ru)} | {table_cell(row.get('change'), ru)} | {table_cell(row.get('primary_metric'), ru)} | {table_cell(row.get('event_id'), ru)} | {table_cell(row.get('decision_rule'), ru)} | {table_cell(row.get('support'), ru)} |"
         for row in rows
     )
-    return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} | {headers[5]} |\n| --- | --- | --- | --- | --- | --- |\n{body}"
+    return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} | {headers[5]} | {headers[6]} |\n| --- | --- | --- | --- | --- | --- | --- |\n{body}"
+
+
+def experiment_quality_table(rows: list[dict[str, Any]], ru: bool) -> str:
+    headers = (
+        ("Событие", "Экспозиция", "Контрольные метрики", "SRM", "Потеря событий", "Ожидаемый эффект", "Остановить / оставить / итерировать", "Риск ошибки")
+        if ru
+        else ("Event", "Exposure", "Guardrails", "SRM check", "Event loss", "Expected effect", "Stop / ship / iterate", "Failure mode")
+    )
+    if not rows:
+        return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} | {headers[5]} | {headers[6]} | {headers[7]} |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n| - | - | - | - | - | - | - | - |"
+    body = "\n".join(
+        (
+            f"| {table_cell(row.get('event_id'), ru)} | {table_cell(row.get('exposure_definition'), ru)} | "
+            f"{table_cell(row.get('guardrail_metrics'), ru)} | {table_cell(row.get('srm_check'), ru)} | "
+            f"{table_cell(row.get('event_loss_threshold'), ru)} | {table_cell(row.get('expected_effect_range'), ru)} | "
+            f"{table_cell('; '.join([dash(row.get('stop_rule'), ru), dash(row.get('ship_rule'), ru), dash(row.get('iterate_rule'), ru)]), ru)} | "
+            f"{table_cell(row.get('failure_mode'), ru)} |"
+        )
+        for row in rows
+    )
+    return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} | {headers[5]} | {headers[6]} | {headers[7]} |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n{body}"
 
 
 def risk_table(rows: list[dict[str, Any]], ru: bool) -> str:
@@ -753,6 +1086,41 @@ def assumptions_table(rows: list[dict[str, Any]], ru: bool) -> str:
         for row in rows
     )
     return f"| {headers[0]} | {headers[1]} | {headers[2]} |\n| --- | --- | --- |\n{body}"
+
+
+def promise_status_label(value: Any, ru: bool) -> str:
+    text = str(value or "")
+    if not ru:
+        return text or "-"
+    return {
+        "source_backed": "подтверждено источником",
+        "asset_backed": "есть внутренний артефакт доказательства",
+        "weak_proof": "доказательство слабое",
+        "no_proof": "доказательства нет",
+        "risky_unverified": "рискованное обещание не подтверждено",
+    }.get(text, text or "не указано")
+
+
+def promise_proof_table(rows: list[dict[str, Any]], ru: bool) -> str:
+    headers = ("Обещание", "Возражение", "Что доказать", "Формат proof", "Статус", "Запасной вариант") if ru else ("Promise", "Objection", "Proof requirement", "Proof format", "Status", "Fallback")
+    if not rows:
+        empty = "нет проверенных обещаний" if ru else "no promise checks"
+        return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} | {headers[5]} |\n| --- | --- | --- | --- | --- | --- |\n| {empty} | - | - | - | - | - |"
+    body = "\n".join(
+        f"| {table_cell(row.get('promise'), ru)} | {table_cell(row.get('objection'), ru)} | {table_cell(row.get('proof_requirement'), ru)} | {table_cell(proof_mechanic_label(row.get('recommended_proof_mechanic'), ru), ru)} | {table_cell(promise_status_label(row.get('evidence_status'), ru), ru)} | {table_cell(row.get('fallback'), ru)} |"
+        for row in rows
+    )
+    return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} | {headers[5]} |\n| --- | --- | --- | --- | --- | --- |\n{body}"
+
+
+def proof_mechanic_label(value: Any, ru: bool) -> str:
+    if not isinstance(value, dict):
+        return "не указано" if ru else "-"
+    pieces = [
+        str(value.get("recommended_format") or "").strip(),
+        str(value.get("placement") or "").strip(),
+    ]
+    return "; ".join(piece for piece in pieces if piece) or ("не указано" if ru else "-")
 
 
 def evidence_refs_table(rows: list[dict[str, Any]], ru: bool) -> str:
@@ -778,6 +1146,107 @@ def metrics_table(metrics: Any, ru: bool) -> str:
         else:
             rows.append(f"| raw_metric | - | ingested_notes | {table_cell(metric, ru)} |")
     return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} |\n| --- | --- | --- | --- |\n" + "\n".join(rows)
+
+
+def list_items(value: Any) -> list[str]:
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item or "").strip()]
+    if str(value or "").strip():
+        return [str(value).strip()]
+    return []
+
+
+def niche_profile_section(profile: dict[str, Any], ru: bool) -> str:
+    status = str(profile.get("status") or "")
+    if status != "matched":
+        return "- " + ("Профиль не распознан; используется общий путь." if ru else "No niche profile matched; using the generic path.")
+    rows = [
+        ("Профиль" if ru else "Profile", profile.get("label")),
+        ("Словарь" if ru else "Vocabulary", ", ".join(list_items(profile.get("vocabulary")))),
+        ("Funnel defaults" if not ru else "Базовый путь", "; ".join(list_items(profile.get("funnel_defaults")))),
+        ("Proof patterns" if not ru else "Форматы proof", "; ".join(list_items(profile.get("proof_patterns")))),
+        ("Риски" if ru else "Risks", "; ".join(list_items(profile.get("risks")))),
+        ("Matched terms" if not ru else "Сигналы профиля", ", ".join(list_items(profile.get("matched_terms")))),
+    ]
+    summary = dash(profile.get("summary_text"), ru)
+    return f"{rows_table(rows, 'Поле' if ru else 'Field', 'Значение' if ru else 'Value', ru)}\n\n> **{summary}**"
+
+
+def niche_events_table(profile: dict[str, Any], ru: bool) -> str:
+    headers = ("Событие", "Назначение") if ru else ("Event", "Purpose")
+    events = list_items(profile.get("event_suggestions")) if isinstance(profile, dict) else []
+    defaults = list_items(profile.get("funnel_defaults")) if isinstance(profile, dict) else []
+    if not events:
+        return f"| {headers[0]} | {headers[1]} |\n| --- | --- |\n| - | - |"
+    rows = []
+    for index, event in enumerate(events):
+        purpose = defaults[index] if index < len(defaults) else profile.get("summary_text")
+        rows.append(f"| {table_cell(event, ru)} | {table_cell(purpose, ru)} |")
+    return f"| {headers[0]} | {headers[1]} |\n| --- | --- |\n" + "\n".join(rows)
+
+
+def competitor_synthesis_status(value: Any, ru: bool) -> str:
+    status = str(value or "").strip()
+    if not ru:
+        return status or "-"
+    return {
+        "observed": "наблюдаемые паттерны найдены",
+        "insufficient_competitor_patterns": "недостаточно повторяемых паттернов",
+    }.get(status, status or "не указано")
+
+
+def competitor_synthesis_section(synthesis: dict[str, Any], ru: bool) -> str:
+    status = str(synthesis.get("status") or "")
+    source_ids = ", ".join(list_items(synthesis.get("source_ids"))) or ("нет" if ru else "-")
+    if status != "observed":
+        message = (
+            "Повторяемых конкурентных паттернов пока недостаточно; финальный отчет не должен выдумывать цены, призывы к действию, доказательства или первые шаги конкурентов."
+            if ru
+            else "Repeatable competitor patterns are not strong enough yet; the final report must not invent competitor pricing, CTAs, proof, or onboarding."
+        )
+        return f"- {'Статус' if ru else 'Status'}: {competitor_synthesis_status(status, ru)}\n- {'Source IDs' if not ru else 'ID источников'}: {source_ids}\n\n> **{message}**"
+    return (
+        f"- {'Статус' if ru else 'Status'}: {competitor_synthesis_status(status, ru)}\n"
+        f"- {'Source IDs' if not ru else 'ID источников'}: {source_ids}\n\n"
+        f"{competitor_patterns_table(synthesis.get('patterns'), ru)}\n\n"
+        f"### {'Наблюдаемые слабые места' if ru else 'Observed Weaknesses'}\n\n"
+        f"{competitor_weaknesses_table(synthesis.get('observations'), ru)}"
+    )
+
+
+def competitor_patterns_table(patterns: Any, ru: bool) -> str:
+    headers = ("Паттерн", "Наблюдения", "ID источников", "Сколько строк") if ru else ("Pattern", "Values", "Source IDs", "Rows")
+    if not isinstance(patterns, dict) or not patterns:
+        return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} |\n| --- | --- | --- | --- |\n| - | - | - | - |"
+    order = ["positioning", "pricing", "primary_cta", "onboarding_pattern", "proof", "first_value_path", "observed_weaknesses"]
+    rows = []
+    for key in order:
+        pattern = patterns.get(key)
+        if not isinstance(pattern, dict):
+            continue
+        values = "; ".join(list_items(pattern.get("values")))
+        source_ids = ", ".join(list_items(pattern.get("source_ids")))
+        rows.append(
+            f"| {table_cell(pattern.get('label'), ru)} | {table_cell(values, ru)} | {table_cell(source_ids, ru)} | {table_cell(pattern.get('observation_count'), ru)} |"
+        )
+    if not rows:
+        rows.append("| - | - | - | - |")
+    return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} |\n| --- | --- | --- | --- |\n" + "\n".join(rows)
+
+
+def competitor_weaknesses_table(observations: Any, ru: bool) -> str:
+    headers = ("Конкурент", "Слабое место", "ID источников") if ru else ("Competitor", "Weakness", "Source IDs")
+    rows = []
+    if isinstance(observations, dict):
+        for observation in observations.get("observed_weaknesses", []):
+            if not isinstance(observation, dict):
+                continue
+            rows.append(
+                f"| {table_cell(observation.get('competitor'), ru)} | {table_cell(observation.get('value'), ru)} | {table_cell(', '.join(list_items(observation.get('source_ids'))), ru)} |"
+            )
+    if not rows:
+        rows.append("| - | - | - |")
+    return f"| {headers[0]} | {headers[1]} | {headers[2]} |\n| --- | --- | --- |\n" + "\n".join(rows)
 
 
 def competitor_table(rows: list[dict[str, str]], ru: bool) -> str:

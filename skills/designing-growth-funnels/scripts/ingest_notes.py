@@ -59,6 +59,13 @@ LABELS = {
     "primary channel": "primary_channel",
     "канал": "primary_channel",
     "основной канал": "primary_channel",
+    "current funnel": "current_funnel",
+    "existing funnel": "current_funnel",
+    "current funnel steps": "current_funnel",
+    "existing funnel steps": "current_funnel",
+    "текущая воронка": "current_funnel",
+    "текущий путь": "current_funnel",
+    "текущие шаги": "current_funnel",
     "pricing": "pricing",
     "price": "pricing",
     "цена": "pricing",
@@ -75,12 +82,22 @@ LABELS = {
     "юнит экономика": "unit_economics",
     "implementation bandwidth": "implementation_bandwidth",
     "experiment bandwidth": "experiment_bandwidth",
+    "reviewer approval": "reviewer_approval",
+    "review approval": "reviewer_approval",
+    "human approval": "reviewer_approval",
+    "approval": "reviewer_approval",
+    "reviewer": "reviewer_approval",
+    "одобрение": "reviewer_approval",
+    "апрув": "reviewer_approval",
+    "согласование": "reviewer_approval",
+    "ревьюер": "reviewer_approval",
     "language": "output_language",
     "язык": "output_language",
 }
 
 URL_PATTERN = re.compile(r"https?://[^\s),\]]+", re.IGNORECASE)
 DATE_PATTERN = re.compile(r"\b(20\d{2}-\d{2}-\d{2})\b")
+CURRENT_FUNNEL_KEYS = {"current_funnel"}
 
 
 def parse_args() -> argparse.Namespace:
@@ -113,7 +130,58 @@ def parse_labeled_updates(text: str) -> dict[str, Any]:
             updates[key] = value.strip()
     if re.search(r"\b(no proof yet|no proof|no proofs|no case studies|no testimonials)\b", text, re.IGNORECASE) or re.search(r"(нет доказательств|нет кейсов|нет отзывов)", text, re.IGNORECASE):
         updates["explicit_no_proof_yet"] = True
+    current_funnel = extract_current_funnel_steps(text)
+    if current_funnel:
+        updates["current_funnel"] = current_funnel
     return updates
+
+
+def clean_current_funnel_step(value: str) -> str:
+    text = re.sub(r"^\s*[-*]\s*", "", value)
+    text = re.sub(r"^\s*\d+[.)]\s*", "", text)
+    return re.sub(r"\s+", " ", text.strip()).strip()
+
+
+def split_current_funnel_step(value: str) -> list[str]:
+    clean = clean_current_funnel_step(value)
+    if not clean:
+        return []
+    if re.search(r"\s*(?:->|=>|→)\s*", clean):
+        return [item for item in (clean_current_funnel_step(part) for part in re.split(r"\s*(?:->|=>|→)\s*", clean)) if item]
+    return [clean]
+
+
+def is_section_heading(line: str) -> bool:
+    if ":" not in line:
+        return False
+    label, _ = line.split(":", 1)
+    normalized = normalize_label(label)
+    return normalized in LABELS or normalized in {"proof", "current metrics", "competitor", "конкурент"}
+
+
+def extract_current_funnel_steps(text: str) -> list[str]:
+    rows: list[str] = []
+    collecting = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if ":" in stripped:
+            label, value = stripped.split(":", 1)
+            key = LABELS.get(normalize_label(label))
+            if key in CURRENT_FUNNEL_KEYS:
+                collecting = True
+                rows.extend(split_current_funnel_step(value))
+                continue
+            if collecting and is_section_heading(stripped):
+                collecting = False
+        if not collecting:
+            continue
+        if is_section_heading(stripped) and not stripped.startswith(("-", "*")):
+            collecting = False
+            continue
+        rows.extend(split_current_funnel_step(stripped))
+    return list(dict.fromkeys(row for row in rows if row))
 
 
 def extract_proofs(text: str) -> list[str]:

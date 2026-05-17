@@ -6,6 +6,7 @@
       "expected": [
         "runtime files are created immediately",
         "runtime/insights.json is created",
+        "runtime/orchestration_contract.json is created",
         "minimum gate is not satisfied",
         "next_best_input has no more than 3 questions",
         "final pack can render blocked pages without raw runtime leakage"
@@ -29,6 +30,8 @@
         "post-gate next_best_input has no more than 2 topic-specific clarify questions",
         "qualification score is lower than with proof",
         "no proof claims are fabricated",
+        "promise_proof_model marks the main promise as no_proof with an assumption fallback",
+        "variant_bundles keep no-proof copy or CTA rows blocked with assumption_ids and blocked_reason",
         "final pack renders clean Markdown and HTML",
         "recommendations cite evidence refs or explicit assumptions"
       ]
@@ -41,6 +44,15 @@
         "competitor map includes pricing, CTA, onboarding, and source",
         "phase is ready when research readiness is at least 60 and there are no contradictions",
         "insights include at least 3 actionable screen-level recommendations",
+        "runtime/insights.json includes competitor_synthesis with observed pricing, CTA, and onboarding patterns",
+        "runtime/insights.json includes promise_proof_model linking the promise, objection, proof requirement, and evidence status",
+        "runtime/insights.json includes 2-3 variant_bundles with hypothesis, proof requirement, measurement_event, claim_ids, and source_ids or assumption_ids",
+        "runtime/insights.json includes reviewer_approval and leaves normal non-risky source-backed cases not_required",
+        "runtime/orchestration_contract.json maps tasks to input_refs, output_refs, claim_ids, source_ids, assumption_ids, status, and blocked_reason",
+        "final competitor map renders synthesized patterns and source IDs without leaking raw JSON",
+        "final screen specs render variant bundles as a table without raw variant_bundles JSON",
+        "final pages do not leak raw orchestration contract JSON",
+        "recommendations visibly use competitor-derived differentiation rather than only listing competitors",
         "final report separates evidence from recommendations",
         "HTML provides visual decision aids beyond plain Markdown styling"
       ]
@@ -54,6 +66,88 @@
         "final index and status pages render Russian headings",
         "final HTML contains inline styles and navigation",
         "Russian output has no leftover English UI strings like Intake brief, Previous, Next, or Auto-collect"
+      ]
+    },
+    {
+      "name": "p0_b2b_saas_fast_ttfv_contract",
+      "input": "Offer: connect Stripe and CRM to show churn-risk accounts in 3 minutes\nICP: B2B SaaS founders, growth leads, and RevOps operators\nTarget KPI: First Value Reached / Trial Started\nChannel: search\nTTFV: 3\nProof: customer case showed reduced churn-risk response time\nCompetitor: RivalOne | domain: rivalone.com | positioning: churn analytics | pricing: $29/mo | CTA: Start free | onboarding: connect Stripe | source: https://rivalone.com/pricing | retrieved: 2026-05-15\nCompetitor: RivalTwo | domain: rivaltwo.com | positioning: revenue recovery | pricing: $49/mo | CTA: Book demo | onboarding: import billing data | source: https://rivaltwo.com/pricing | retrieved: 2026-05-15\nCompetitor: RivalThree | domain: rivalthree.com | positioning: retention workflows | pricing: custom | CTA: View demo | onboarding: sample workspace | source: https://rivalthree.com/pricing | retrieved: 2026-05-15",
+      "expected": [
+        "insights include evidence_claims with claim_id and source_ids",
+        "screen and experiment recommendations include claim_ids, source_ids or assumption_ids, owner_action, and measurement_event",
+        "experiment recommendations include event_id, guardrail_metrics, exposure_definition, event_instrumentation, SRM check, event_loss_threshold, expected_effect_range, stop/ship/iterate rules, and failure_mode",
+        "channel_synthesis primary pack is search and includes SearchIntentMatched or equivalent search event ids",
+        "runtime/insights.json includes niche_profile=saas with SaaS vocabulary, risks, proof patterns, funnel defaults, and event suggestions",
+        "final funnel blueprint renders a channel route table with primary channel, support loops, event IDs, and risks",
+        "final pages render the SaaS niche profile and profile event suggestions without raw niche_profile JSON",
+        "final experiment card renders quality gates and decision thresholds without raw JSON",
+        "export_launch.py writes action_plan, event_schema, content_brief, CRM handoff, funnel_diff, variant_bundles, and experiment_card JSON/CSV into exports/ with claim_ids, source_ids, assumption_ids, and blocked_reason",
+        "export_launch.py writes reviewer_approval JSON/CSV into exports/ and never into final/",
+        "export_launch.py writes orchestration_contract JSON/CSV into exports/ and includes it in manifest.json",
+        "variant_bundles use channel_synthesis, niche_profile, competitor_synthesis, and current_funnel_diff signals when available without inventing proof or metrics",
+        "promise_proof_model records the promise-proof status and blocks unsupported risky claims",
+        "promise_proof_model includes proof mechanics guidance by claim type, sales motion, and risk level, but treats it as guidance rather than evidence",
+        "final competitor map shows source-backed differentiation patterns from competitor_synthesis",
+        "first-value route is specific to billing/account risk rather than generic conversion advice",
+        "unsupported revenue recovery claims are blocked or marked as assumptions"
+      ]
+    },
+    {
+      "name": "p0_current_funnel_diff_contract",
+      "input": "Offer: connect Stripe and CRM to show churn-risk accounts in 3 minutes\nICP: B2B SaaS founders and RevOps operators\nTarget KPI: First Value Reached / Trial Started\nChannel: search\nCurrent funnel: Google ad -> generic landing page -> signup form -> manual sales call\nTTFV: 3\nProof: customer case showed reduced churn-risk response time\nCompetitor: RivalOne | domain: rivalone.com | positioning: churn analytics | pricing: $29/mo | CTA: Start free | onboarding: connect Stripe | source: https://rivalone.com/pricing | retrieved: 2026-05-15\nCompetitor: RivalTwo | domain: rivaltwo.com | positioning: revenue recovery | pricing: $49/mo | CTA: Book demo | onboarding: import billing data | source: https://rivaltwo.com/pricing | retrieved: 2026-05-15\nCompetitor: RivalThree | domain: rivalthree.com | positioning: retention workflows | pricing: custom | CTA: View demo | onboarding: sample workspace | source: https://rivalthree.com/pricing | retrieved: 2026-05-15",
+      "expected": [
+        "runtime/insights.json includes current_funnel_diff with raw_current_steps and row-level change_type",
+        "current_funnel_diff maps provided current steps to proposed screen/channel/niche steps without inventing current metrics, tools, copy, or conversion rates",
+        "current_funnel_diff rows include measurement_event, claim_ids, source_ids or assumption_ids, and blocked_reason",
+        "variant_bundles include current_step or control_reference from current_funnel_diff when current funnel context is available",
+        "final funnel blueprint renders a Current vs Proposed Changes table without raw JSON",
+        "exports/funnel_diff.json and .csv provide a brief machine-readable handoff outside final/"
+      ]
+    },
+    {
+      "name": "p1_experiment_quality_gates_low_traffic",
+      "input": "Offer: expert onboarding audit for B2B SaaS\nICP: SaaS founders\nTarget KPI: qualified activation calls\nChannel: LinkedIn content\nTTFV: 5\nProof: customer case https://case.example/onboarding retrieved 2026-05-15\nMetric: traffic 30 sessions last month\nCompetitor: AuditOne | domain: auditone.example | positioning: onboarding audits | CTA: Get audit | onboarding: role questionnaire | proof: case study | source: https://auditone.example/audit | retrieved: 2026-05-15\nCompetitor: AuditTwo | domain: audittwo.example | positioning: activation consulting | CTA: Book review | onboarding: diagnostic form | proof: testimonials | source: https://audittwo.example/review | retrieved: 2026-05-15\nCompetitor: AuditThree | domain: auditthree.example | positioning: trial activation help | CTA: Start diagnostic | onboarding: benchmark quiz | proof: customer story | source: https://auditthree.example/diagnostic | retrieved: 2026-05-15",
+      "expected": [
+        "experiment card includes hypothesis, target segment, primary metric, guardrail metrics, exposure definition, event instrumentation, SRM check, event loss threshold, expected effect range, stop/ship/iterate rules, and failure mode",
+        "measurement_event equals a concrete event_id rather than a raw KPI label",
+        "low-traffic case uses qualitative or sequential learning plan and does not claim statistical lift",
+        "renderer exposes SRM, event loss, expected effect, and stop/ship/iterate thresholds clearly"
+      ]
+    },
+    {
+      "name": "p0_telegram_webinar_contract",
+      "input": "Offer: education program for entrepreneurs using Meta Ads to Telegram bot to webinar to strategy call\nICP: Ukrainian entrepreneurs in Europe\nTarget KPI: qualified showed strategy calls\nChannel: Meta Ads, Telegram bot, webinar, CRM follow-up\nNo proof yet\nCompetitor: CourseOne | domain: courseone.example | positioning: webinar-first education | CTA: Join webinar | onboarding: Telegram quiz | source: https://courseone.example/webinar | retrieved: 2026-05-15\nCompetitor: CourseTwo | domain: coursetwo.example | positioning: bot-led qualification | CTA: Start bot | onboarding: intent branch | source: https://coursetwo.example/bot | retrieved: 2026-05-15\nCompetitor: CourseThree | domain: coursethree.example | positioning: consultation funnel | CTA: Book call | onboarding: webinar replay | source: https://coursethree.example/call | retrieved: 2026-05-15",
+      "expected": [
+        "bot, webinar, and CRM recommendations are represented as structured recommendations with measurement_event",
+        "channel_synthesis chooses Meta as the primary pack and represents Telegram, Webinar, and Email/CRM as support loops",
+        "tracking events include channel-specific IDs for ad, bot/webinar/CRM handoff logic",
+        "runtime/insights.json includes niche_profile=education with education vocabulary, risks, proof patterns, funnel defaults, and event suggestions",
+        "final pages render the education niche profile without raw niche_profile JSON",
+        "final report renders primary channel and support loops without raw channel_synthesis JSON",
+        "promise_proof_model marks no-proof promises as assumptions with blocked_reason",
+        "variant_bundles inherit no-proof assumption_ids and blocked_reason instead of marking copy or CTA variants ready",
+        "proof mechanics guidance recommends a proof format but does not treat the recommendation as evidence",
+        "income claims remain blocked because proof is missing",
+        "recommendations use assumption_ids when evidence is insufficient",
+        "machine-readable launch exports remain blocked and do not mark rows ready while phase is draft or research",
+        "phase remains draft/research unless evidence quality is sufficient"
+      ]
+    },
+    {
+      "name": "p0_high_ticket_real_estate_contract",
+      "input": "Offer: overseas real estate consultation and property shortlist\nICP: investors and lifestyle relocation buyers\nTarget KPI: qualified consultation booked and showed\nChannel: paid social to qualification form to consultation\nNo proof yet\nCompetitor: EstateOne | domain: estateone.example | positioning: investment property advisory | CTA: Book consultation | onboarding: budget questionnaire | source: https://estateone.example/advisory | retrieved: 2026-05-15\nCompetitor: EstateTwo | domain: estatetwo.example | positioning: relocation property search | CTA: Get shortlist | onboarding: country fit quiz | source: https://estatetwo.example/relocation | retrieved: 2026-05-15\nCompetitor: EstateThree | domain: estatethree.example | positioning: premium buyer support | CTA: Talk to advisor | onboarding: legal readiness check | source: https://estatethree.example/buyers | retrieved: 2026-05-15",
+      "expected": [
+        "risky legal, payment, or return claims are blocked or routed through assumptions",
+        "paid social or Meta path includes message prequalification and lead quality risk instead of a generic consultation CTA",
+        "runtime/insights.json includes niche_profile=real_estate with buyer vocabulary, trust/qualification risks, proof patterns, funnel defaults, and event suggestions",
+        "final pages render the real estate niche profile without raw niche_profile JSON",
+        "competitor_synthesis renders trust/qualification patterns without inventing legal or return proof",
+        "promise_proof_model flags risky legal/payment/return promises without source-backed proof",
+        "proof mechanics guidance does not convert risky_unverified, weak_proof, or no_proof into ready",
+        "source-backed high-risk promises still require explicit human reviewer approval before phase=ready",
+        "human reviewer approval does not unblock missing, weak, stale, or low-weight evidence",
+        "trust-path recommendations include structured support fields",
+        "generic consultation recommendations without claim_ids or support fail contract validation",
+        "ready phase is blocked without strong evidence despite a renderable draft report"
       ]
     }
   ]

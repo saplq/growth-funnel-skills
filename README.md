@@ -1,62 +1,73 @@
 # Growth Funnel Skills
 
-`designing-growth-funnels` is an Agent Skill that helps an AI agent build a practical, source-backed growth funnel strategy from rough business context.
+[![CI](https://github.com/saplq/growth-funnel-skills/actions/workflows/ci.yml/badge.svg)](https://github.com/saplq/growth-funnel-skills/actions/workflows/ci.yml)
 
-The user asks for a funnel. The agent handles the internal workflow: it creates a workspace, normalizes the input, checks missing fields, tracks evidence, and renders a clean final report.
+`designing-growth-funnels` is an Agent Skill that helps an AI agent build a practical, source-aware growth funnel package when enough business context, evidence, and measurable constraints are available.
+
+It is designed for Codex, ChatGPT Skills, Claude Code, Claude.ai, and other agent hosts that support `SKILL.md`.
 
 Repository: `saplq/growth-funnel-skills`
 
 ## Core Idea
 
-This skill is built around one practical thesis: repeatable growth does not come from "creative marketing genius"; it comes from a system that rejects weak cases early, turns the work into measurable KPI contracts, gives users fast first value, instruments each step, and improves through experiments.
+Repeatable growth does not come from "creative marketing genius." It comes from a system that rejects weak cases early, turns vague goals into measurable KPI contracts, gives users fast first value, instruments each step, and improves through experiments.
 
-It does **not** promise 90%+ success for every product, audience, and traffic source. That would be dishonest. Instead, it is designed to make suitable projects more predictable by forcing this operating model:
+This skill does **not** promise 90%+ success for every product, audience, and traffic source. It helps an agent produce a clearer, more testable, more evidence-aware funnel package.
 
 ```text
 Fit Gate -> KPI Contract -> Journey Map -> First Value -> Instrumentation -> Experiment Loop -> Retention Loop -> Postmortem Library
 ```
 
-In practice, the skill asks:
-
-- Is this project ready for growth, or should it only get a diagnosis / strategy sprint?
-- What one KPI defines success?
-- What belief must change at each step of the funnel?
-- Where does the user receive first value before or immediately after conversion?
-- Which events prove that users moved forward?
-- What is the first meaningful experiment?
-- How does the product or funnel create a reason to return?
-- What did the last result teach us for the next funnel?
-
-## What It Does
-
-Use this skill when you need a growth funnel for:
-
-- SaaS, subscriptions, marketplaces, services, real estate, education, creator products, or assisted-sales businesses;
-- landing pages, Telegram/WhatsApp bots, webinars, onboarding, lead qualification, activation, paywalls, retention loops;
-- source-backed competitor/research notes;
-- tracking plans, experiment cards, and execution plans.
+## What It Produces
 
 The final output is a human-readable decision package in `final/`:
 
-- decision summary and first action;
-- audience segmentation and jobs;
-- evidence-backed or assumption-backed recommendations;
-- funnel map and screen / bot / webinar / onboarding playbook;
-- tracking plan and first experiment;
-- risks, gaps, and execution plan.
+| Area | Output |
+| --- | --- |
+| Decision | summary, first action, blockers, readiness |
+| Audience | segments, jobs, objections, proof needs |
+| Research | source-aware notes, assumptions, evidence gaps |
+| Funnel | journey map, screen / bot / webinar / onboarding playbook, copy/action variants |
+| Measurement | KPI contract, event tracking, guardrails |
+| Experiment | first experiment card, decision rule, postmortem loop |
+| Execution | risks, constraints, next steps |
 
-## What It Does Not Do
+When explicitly exported, machine-readable launch handoff files are written to `exports/`, not `final/`.
 
-- It does not browse the web inside bundled scripts.
-- It does not invent proof, private metrics, pricing, benchmarks, or customer claims.
-- It does not write to CRM, ad accounts, analytics, messengers, or external systems without explicit user approval.
-- It does not replace strategy judgment; it structures the work and shows gaps clearly.
+## Good Fit
+
+The skill is broadly **segment-agnostic, but not context-agnostic**.
+
+It can support SaaS, subscriptions, marketplaces, education, real estate, services, creator products, e-commerce, local businesses, Telegram/WhatsApp bots, webinars, onboarding, lead qualification, activation, and assisted-sales funnels.
+
+It works best when the business has:
+
+- a clear offer;
+- a specific audience or primary persona;
+- one target KPI;
+- a primary channel;
+- proof assets or explicit `no proof yet`;
+- enough market context to research, measure, and test the path.
+
+If those inputs are missing, the skill should produce a diagnosis and missing-data list, not a confident final strategy.
+
+## Not A Fit
+
+This skill should not be treated as:
+
+- a magic growth strategy generator;
+- a replacement for marketer judgment;
+- proof that a funnel will convert;
+- a source of invented metrics, proof, pricing, benchmarks, or customer claims;
+- an automation that writes to CRM, ad accounts, analytics, messengers, or external systems without explicit approval.
 
 ## Install
 
-Skills are installed into an agent host, not into a model name. For example, you install it into Codex, ChatGPT Skills, Claude Code, Claude.ai, or another agent that supports `SKILL.md`.
+Skills are installed into an agent host, not into a model name.
 
-<details>
+`skills/designing-growth-funnels/agents/openai.yaml` is OpenAI-specific UI metadata. It does not make the skill OpenAI-only. This repo does not include a separate `agents/claude.yaml`; hosts that support skills should read the skill contract from `SKILL.md`.
+
+<details open>
 <summary><strong>Codex</strong></summary>
 
 Recommended:
@@ -72,12 +83,12 @@ rm -rf ~/.codex/skills/designing-growth-funnels
 npx skills add saplq/growth-funnel-skills --skill designing-growth-funnels
 ```
 
-Manual install:
+Local installer from a cloned repo:
 
 ```bash
 git clone https://github.com/saplq/growth-funnel-skills.git
-mkdir -p ~/.codex/skills
-cp -R growth-funnel-skills/skills/designing-growth-funnels ~/.codex/skills/
+cd growth-funnel-skills
+python3 scripts/install_skill.py codex --force
 ```
 
 </details>
@@ -85,22 +96,15 @@ cp -R growth-funnel-skills/skills/designing-growth-funnels ~/.codex/skills/
 <details>
 <summary><strong>ChatGPT Skills</strong></summary>
 
-Create a zip:
+Create an uploadable zip:
 
 ```bash
 git clone https://github.com/saplq/growth-funnel-skills.git
-cd growth-funnel-skills/skills
-zip -r designing-growth-funnels.zip designing-growth-funnels
+cd growth-funnel-skills
+python3 scripts/install_skill.py zip --force
 ```
 
-Upload in ChatGPT:
-
-1. Open ChatGPT.
-2. Open your profile menu.
-3. Go to `Skills`.
-4. Click `New skill`.
-5. Choose `Upload from your computer`.
-6. Upload `designing-growth-funnels.zip`.
+Upload `dist/designing-growth-funnels.zip` through the Skills upload flow available in your ChatGPT workspace. The exact UI labels can vary by plan and workspace settings.
 
 Skills availability depends on your ChatGPT plan/workspace settings.
 
@@ -109,7 +113,15 @@ Skills availability depends on your ChatGPT plan/workspace settings.
 <details>
 <summary><strong>Claude Code</strong></summary>
 
-Personal install:
+Personal install from a cloned repo:
+
+```bash
+git clone https://github.com/saplq/growth-funnel-skills.git
+cd growth-funnel-skills
+python3 scripts/install_skill.py claude --force
+```
+
+Manual personal install:
 
 ```bash
 git clone https://github.com/saplq/growth-funnel-skills.git
@@ -136,11 +148,11 @@ Create a zip:
 
 ```bash
 git clone https://github.com/saplq/growth-funnel-skills.git
-cd growth-funnel-skills/skills
-zip -r designing-growth-funnels.zip designing-growth-funnels
+cd growth-funnel-skills
+python3 scripts/install_skill.py zip --force
 ```
 
-Upload or attach the zipped skill folder using the Skills workflow available in your Claude.ai plan or Anthropic API setup.
+Upload or attach `dist/designing-growth-funnels.zip` using the Skills workflow available in your Claude.ai plan or Anthropic API setup. The exact upload flow can vary by product surface.
 
 </details>
 
@@ -162,8 +174,6 @@ If your agent has another skills directory, copy `skills/designing-growth-funnel
 ## How To Use
 
 After installation, write a normal business request. You do not need to mention scripts or runtime files.
-
-Quick template:
 
 ```text
 Use $designing-growth-funnels.
@@ -197,307 +207,85 @@ Constraints:
 Please create segmentation, funnel blueprint, screen or bot specs, tracking plan, first experiment card, risks, gaps, and next step.
 ```
 
-Expected agent behavior:
+More niche prompts are in [EXAMPLES.md](EXAMPLES.md).
+
+## Expected Agent Behavior
 
 1. Create a workspace.
 2. Ingest the user context.
 3. Validate whether the minimum funnel gate is complete.
-4. Compile `runtime/insights.json`.
-5. Render `final/index.html`.
-6. Reply first with a clickable Markdown link to `final/index.html`, then scores, blockers, and next step.
+4. Collect current sources when host web, browser, MCP, analytics, CRM, file, or local network tools are available; bundled collectors only cover best-effort public web and competitor discovery.
+5. Compile `runtime/insights.json`.
+6. Render `final/index.html`.
+7. Reply first with a clickable Markdown link to `final/index.html`, then scores, blockers, and next step.
 
-## Example Prompts By Niche
+## Quality Model
 
-Use these as starting points. Replace the details with your own business.
+The correct expectation is not "the skill always knows the answer."
 
-<details>
-<summary><strong>Real estate developer / property sales</strong></summary>
+The correct expectation is: **the skill makes the work structured, measurable, source-aware, and hard to fake.**
 
-```text
-Use $designing-growth-funnels.
+| Tier | Meaning |
+| --- | --- |
+| **Blocked** | Required business context is missing. |
+| **Draft** | Core context exists, but sources, competitor evidence, proof, or metrics are limited. |
+| **Ready to test** | Gate is complete, current sources and competitor evidence are recorded, KPI and tracking are defined, and the first experiment card is clear. |
+| **Ready to execute carefully** | Owner, timeline, constraints, data, contradictions, and risks have been reviewed. |
 
-Build a marketing growth funnel and final report in English for a real estate developer selling new-build apartments to Ukrainian buyers living in Europe.
+## Methodology Basis
 
-Company: NovaHabitat Development
-Offer: property selection, purchase guidance, payment process, tax basics, and rental setup support for buyers interested in Spain, Maldives, and Zanzibar.
-Audience: Ukrainian entrepreneurs, IT specialists, and families living in Europe with available capital from EUR 80k.
-Primary channel: Meta Ads + email reactivation + Telegram bot + webinars.
-Target KPI: Qualified consultation booked / Telegram bot started.
-Current funnel: email database -> phone enrichment -> Meta Ads -> Telegram bot -> webinar or manager consultation -> property selection call.
-Current metrics: EUR 9-14 per bot start, 18% bot start to qualified lead, 32% webinar attendance, 9% consultation booked after webinar.
-Proof: 37 properties sold in 18 months, 6 video testimonials, two client case studies.
-Constraints: launch improved funnel in 14 days, avoid heavy website redesign, no guaranteed-return claims, premium trustworthy tone.
+The skill is a practical growth operating model, not a scientific guarantee.
 
-Create segmentation, funnel structure, Telegram bot flow, webinar mechanism, screen specs, tracking plan, first experiment card, risks, gaps, and next step.
-```
+It combines:
 
-</details>
+- input gating and blocked-recommendation handling;
+- audience segmentation and jobs-to-be-done thinking;
+- KPI contracts and event-based measurement;
+- funnel step design around user doubts, proof, and first value;
+- source-aware competitor and current-practice research, with readiness blocked when evidence is weak or missing;
+- assumption tracking, experiment planning, retention loops, and postmortems;
+- clean final report generation from a separate runtime workspace.
 
-<details>
-<summary><strong>SaaS / product-led growth</strong></summary>
+Scientific references to predictive cognition, anticipation, uncertainty, and reward are used only as design analogies for sequencing attention, expectation, surprise, and resolution. They are not used as proof that a marketing funnel will work.
 
-```text
-Use $designing-growth-funnels.
-
-Build a source-backed growth funnel and final report in English for a B2B SaaS product.
-
-Company: SignalDesk
-Offer: connect Stripe and CRM to see churn risks and a list of accounts to win back this week.
-Audience: B2B SaaS founders and operators with MRR from USD 20k to USD 300k.
-Primary channel: LinkedIn outbound + content-led landing page.
-Target KPI: First Value Reached / Trial Started.
-Current funnel: content post -> landing page -> trial signup -> Stripe/CRM connection -> churn risk dashboard -> upgrade.
-Current metrics: landing to signup 4.8%, trial activation 27%, time to first value about 5 minutes.
-Proof: pilot cohort of 12 SaaS teams found an average of 18% high-risk accounts in week one.
-Constraints: one frontend engineer, one growth marketer, first experiment should launch in 10 days.
-
-Create segmentation, funnel blueprint, onboarding screens, tracking plan, first experiment card, risks, gaps, and execution plan.
-```
-
-</details>
+Freshness rule: the repository does not hardcode "latest market data" because that would become stale immediately. The skill expects the agent to gather fresh project-specific sources during each run when tools are available, and blocks readiness when current sources or retrieval dates are missing.
 
 <details>
-<summary><strong>Pet project / indie AI tool</strong></summary>
-
-```text
-Use $designing-growth-funnels.
-
-Build a growth funnel and final report in English for an indie AI tool.
-
-Project: ClipForge
-Offer: turn long YouTube videos or podcasts into short clips, titles, captions, and posting ideas in under 5 minutes.
-Audience: solo creators, small podcast teams, and newsletter writers who repurpose long-form content.
-Primary channel: X/Twitter demos + Reddit communities + Product Hunt launch.
-Target KPI: First clip exported / signup.
-Current funnel: social demo post -> landing page -> free signup -> upload URL -> AI generates clips -> export -> paid upgrade.
-Current metrics: waitlist 430 people, landing to waitlist 11%, demo post CTR about 3.2%, no paid users yet.
-Proof: 37 beta users exported at least one clip, 9 users posted clips publicly, 4 testimonials from creators.
-Constraints: solo builder, no paid ads, launch in 21 days, avoid making copyright or platform-policy claims.
-
-Create positioning segments, launch funnel, activation flow, landing/onboarding specs, tracking plan, first experiment, risks, gaps, and next step.
-```
-
-</details>
-
-<details>
-<summary><strong>Pet project / consumer mobile app</strong></summary>
-
-```text
-Use $designing-growth-funnels.
-
-Build a growth funnel and final report in English for a consumer mobile pet project.
-
-Project: TinyHabits Garden
-Offer: a lightweight habit tracker where each completed habit grows a small virtual garden.
-Audience: students and young professionals who want a simple, friendly habit app without complex productivity systems.
-Primary channel: TikTok organic videos + App Store search + friend invites.
-Target KPI: D7 retained users / app install.
-Current funnel: TikTok video -> App Store page -> install -> first habit created -> first 3-day streak -> invite a friend.
-Current metrics: 1,200 installs, 54% create first habit, 21% reach a 3-day streak, D7 retention 12%.
-Proof: 180 users completed at least 10 habits, 32 App Store reviews with 4.6 average rating.
-Constraints: no backend engineer, small design budget, no paid ads, avoid manipulative streak mechanics.
-
-Create user segments, activation and retention funnel, app screen specs, tracking plan, first experiment, risks, gaps, and next step.
-```
-
-</details>
-
-<details>
-<summary><strong>Telegram bot / webinar funnel</strong></summary>
-
-```text
-Use $designing-growth-funnels.
-
-Build a Telegram bot and webinar growth funnel in English.
-
-Business: expert-led education company selling a high-ticket online program.
-Offer: 8-week program helping Ukrainian entrepreneurs in Europe systemize sales and launch Meta Ads.
-Audience: Ukrainian small business owners in Poland, Germany, Spain, and Czech Republic.
-Primary channel: Meta Ads to Telegram bot, email reactivation, weekly webinar.
-Target KPI: Paid strategy call booked / Telegram bot started.
-Current funnel: ad -> Telegram bot quiz -> webinar registration -> webinar attendance -> strategy call -> payment.
-Current metrics: EUR 6 per bot start, 22% bot completion, 38% webinar attendance, 7% call booking after webinar.
-Proof: 120 graduates, 14 video testimonials, 3 public case studies.
-Constraints: avoid exaggerated income claims, keep compliance-safe ad messaging, launch in 7 days.
-
-Create audience segments, bot questions, webinar structure, CTA sequence, screen specs, tracking plan, first experiment, risks, and next step.
-```
-
-</details>
-
-<details>
-<summary><strong>Marketplace</strong></summary>
-
-```text
-Use $designing-growth-funnels.
-
-Build a growth funnel and final report in English for a two-sided marketplace.
-
-Company: CareMatch
-Offer: match families with verified home-care providers within 48 hours.
-Audience: adult children looking for care for parents; providers are licensed caregivers and small agencies.
-Primary channel: Google Search + local partnerships + retargeting.
-Target KPI: Matched consultation booked / qualified request submitted.
-Current funnel: search ad -> landing page -> care request form -> provider shortlist -> consultation call.
-Current metrics: landing conversion 6%, qualified request rate 41%, provider response rate 62%.
-Proof: 420 completed matches, average provider rating 4.7/5, two local partner endorsements.
-Constraints: trust and safety are critical, avoid medical claims, support team can manually review 50 requests per week.
-
-Create demand-side and supply-side segmentation, funnel blueprint, screen specs, tracking plan, first experiment, risks, and execution plan.
-```
-
-</details>
-
-<details>
-<summary><strong>E-commerce / physical product</strong></summary>
-
-```text
-Use $designing-growth-funnels.
-
-Build a growth funnel and final report in English for a direct-to-consumer e-commerce brand.
-
-Brand: NomadBrew
-Offer: compact travel coffee kit for remote workers, van-life travelers, and frequent flyers.
-Audience: remote workers and travelers aged 25-45 who care about good coffee outside the home.
-Primary channel: Meta Ads + TikTok organic + email capture.
-Target KPI: Purchase completed / product page viewed.
-Current funnel: short video ad -> product page -> bundle offer -> checkout -> post-purchase email -> review/referral.
-Current metrics: product page conversion 2.1%, add-to-cart 7.8%, checkout completion 46%, AOV USD 74.
-Proof: 1,800 units sold, 240 customer reviews, 4.7 average rating, UGC from travel creators.
-Constraints: limited inventory for 6 weeks, shipping only to US/EU, avoid discount-heavy positioning.
-
-Create segmentation, landing/product-page flow, offer structure, tracking plan, first experiment, risks, gaps, and next step.
-```
-
-</details>
-
-<details>
-<summary><strong>Local service business</strong></summary>
-
-```text
-Use $designing-growth-funnels.
-
-Build a practical growth funnel and final report in English for a local service business.
-
-Business: premium dental clinic in Barcelona.
-Offer: implant consultation and treatment planning for expats.
-Audience: English-speaking and Ukrainian-speaking expats aged 35-65 in Barcelona and nearby areas.
-Primary channel: Google Search + Meta retargeting + WhatsApp follow-up.
-Target KPI: Consultation booked / qualified lead submitted.
-Current funnel: Google ad -> landing page -> WhatsApp or form -> coordinator call -> clinic consultation.
-Current metrics: EUR 28 per lead, 45% lead to coordinator call, 31% coordinator call to clinic consultation.
-Proof: 12 years in business, 900+ implant cases, doctor credentials, patient reviews.
-Constraints: healthcare compliance, no unrealistic outcome promises, clinic has limited consultation slots.
-
-Create segmentation, landing/WhatsApp flow, trust proof plan, tracking plan, first experiment, risks, and next step.
-```
-
-</details>
-
-<details>
-<summary><strong>Nonprofit / community campaign</strong></summary>
-
-```text
-Use $designing-growth-funnels.
-
-Build a growth funnel and final report in English for a nonprofit community campaign.
-
-Organization: CityWarmth
-Offer: help residents sponsor winter kits for newly arrived refugee families.
-Audience: local residents, small businesses, churches, and community groups who want a concrete way to help.
-Primary channel: local partnerships + Facebook groups + email newsletter + community events.
-Target KPI: Sponsor signup completed / campaign page viewed.
-Current funnel: partner post -> campaign page -> kit sponsorship form -> donation/payment -> thank-you email -> referral/share.
-Current metrics: campaign page conversion 3.5%, average donation USD 58, email CTR 6.2%, referral share rate 8%.
-Proof: 740 kits delivered last winter, photos from distribution events, partner endorsements from 12 local groups.
-Constraints: protect beneficiary privacy, avoid guilt-based messaging, campaign runs for 30 days.
-
-Create donor segments, campaign funnel, page/email specs, tracking plan, first experiment, risks, gaps, and next step.
-```
-
-</details>
-
-## Minimum Input
-
-The skill can start with rough notes, but final recommendations are blocked until these are known:
-
-- offer;
-- ICP or primary persona;
-- target KPI;
-- primary channel;
-- proof assets or explicit `no proof yet`.
-
-If something is missing, the agent should ask at most 3 short questions.
-
-## How It Works Internally
+<summary><strong>Workspace and final pack</strong></summary>
 
 The skill creates a workspace with two layers:
 
 ```text
 funnel-workspace/
 ├── runtime/   # machine state, evidence, gaps, source registry, insights
-└── final/     # user-facing Markdown and self-contained HTML
+├── final/     # user-facing Markdown and self-contained HTML
+└── exports/   # optional machine-readable launch handoff JSON/CSV
 ```
 
-`runtime/` is for the agent and audit trail. `final/` is for the user.
+`runtime/` is for the agent and audit trail, including `orchestration_contract.json` for task/result traceability. `final/` is for the user. `exports/` is created only by the launch export command and is for downstream implementation handoff.
 
-The bundled scripts are deterministic and offline:
-
-- Python standard library only;
-- no network calls;
-- no credential reads;
-- no execution of user-provided code;
-- writes stay inside the selected workspace path.
-
-## What The Final Pack Contains
+The final pack contains:
 
 ```text
 final/
 ├── index.html
-├── 00_index.md / 00_index.html              # start here
-├── 01_status_next_steps.md / .html          # decision summary
-├── 02_intake_brief.md / .html               # segments and jobs
-├── 03_research_evidence.md / .html          # evidence and assumptions
-├── 04_competitor_map.md / .html             # competitive patterns
-├── 05_funnel_blueprint.md / .html           # funnel map
-├── 06_screen_specs.md / .html               # screen playbook
-├── 07_tracking_plan.md / .html              # tracking and KPIs
-├── 08_experiment_card.md / .html            # next experiment
-├── 09_risks_and_gaps.md / .html             # risks and gaps
-└── 10_execution_plan.md / .html             # execution plan
+├── 00_index.md / 00_index.html
+├── 01_status_next_steps.md / .html
+├── 02_intake_brief.md / .html
+├── 03_research_evidence.md / .html
+├── 04_competitor_map.md / .html
+├── 05_funnel_blueprint.md / .html
+├── 06_screen_specs.md / .html
+├── 07_tracking_plan.md / .html
+├── 08_experiment_card.md / .html
+├── 09_risks_and_gaps.md / .html
+└── 10_execution_plan.md / .html
 ```
 
-## Methodology Basis
+</details>
 
-This skill is not built on a frozen list of old funnel frameworks. It is a constructor for evidence-led funnel design: the agent collects current sources for the specific market, records where each claim came from, separates evidence from assumptions, and only then renders the funnel package.
-
-The design was shaped by three research threads:
-
-- Predictive and anticipatory cognition: people interpret sequences by forming expectations, detecting gaps, and updating beliefs when the next signal arrives.
-- Music cognition and reward: musical pleasure is strongly tied to anticipation, uncertainty, surprise, and resolution rather than to raw stimulus alone. This is used as a design analogy, not as a claim that marketing funnels are music.
-- Applied growth research: each project still needs current competitor, pricing, channel, offer, proof, and user-behavior evidence before recommendations can be marked ready.
-
-Representative scientific basis:
-
-- Cheung et al. found that uncertainty and surprise jointly predict musical pleasure and related brain activity. See Current Biology via [PubMed](https://pubmed.ncbi.nlm.nih.gov/31708393/) or DOI: [10.1016/j.cub.2019.09.067](https://doi.org/10.1016/j.cub.2019.09.067).
-- Ferreri et al. showed a causal role for dopamine in music-evoked pleasure and motivation. See PNAS / PMC: [Dopamine modulates the reward experiences elicited by music](https://pmc.ncbi.nlm.nih.gov/articles/PMC6397525/).
-- Palmer and Demos review anticipatory synchronization in music through predictive coding and dynamical systems. See Current Directions in Psychological Science: [Are We in Time?](https://doi.org/10.1177/09637214211053635).
-- Yon et al. review the empirical status and limitations of predictive coding and active inference. See Neuroscience & Biobehavioral Reviews: [The empirical status of predictive coding and active inference](https://doi.org/10.1016/j.neubiorev.2023.105473).
-
-How this maps into funnel construction:
-
-- Fit gate: rejects weak or under-specified cases before the agent writes confident recommendations.
-- KPI contract: turns "more clients" into one measurable success target and guardrails.
-- Journey map: treats the funnel as a sequence of belief updates, not a pile of pages or messages.
-- First value: gives the user a useful preview, diagnosis, estimate, or result before asking for deeper commitment.
-- Evidence ledger: keeps source-backed claims, assumptions, conflicts, and missing proof visible.
-- Current-practice research: competitor, pricing, channel, positioning, and benchmark claims need URL, source type, confidence, and retrieval date.
-- Experiment loop: every recommendation becomes a testable change with a metric, decision rule, and postmortem.
-- Retention loop: the funnel continues after signup, payment, booking, or consultation when repeat value matters.
-
-Freshness rule: the repository does not hardcode "latest market data" because that would become stale immediately. The skill instead forces the agent to gather fresh project-specific sources during each run and blocks readiness when current sources or retrieval dates are missing.
-
-## Manual CLI Usage
+<details>
+<summary><strong>Manual CLI usage</strong></summary>
 
 Most users should let the agent run scripts. Use these commands only for debugging or automation.
 
@@ -529,6 +317,21 @@ python3 skills/designing-growth-funnels/scripts/validate_workspace.py \
   --json
 ```
 
+Optional best-effort public web discovery:
+
+```bash
+python3 skills/designing-growth-funnels/scripts/research_web.py \
+  ./workspaces/acme \
+  --query "focused current-practice query" \
+  --json
+
+python3 skills/designing-growth-funnels/scripts/research_competitors.py \
+  ./workspaces/acme \
+  --query "direct competitors pricing official" \
+  --max-competitors 3 \
+  --json
+```
+
 Render final output:
 
 ```bash
@@ -537,11 +340,17 @@ python3 skills/designing-growth-funnels/scripts/render_final.py \
   --json
 ```
 
-Open the final report:
+Generate launch handoff exports outside `final/`:
 
 ```bash
-open ./workspaces/acme/final/index.html
+python3 skills/designing-growth-funnels/scripts/export_launch.py \
+  ./workspaces/acme \
+  --json
 ```
+
+The export command writes JSON and CSV files for `action_plan`, `event_schema`, `content_brief`, `crm_handoff`, `funnel_diff`, `variant_bundles`, `reviewer_approval`, `orchestration_contract`, and `experiment_card` into `exports/`. Draft or research-phase exports stay marked blocked and keep `claim_ids`, `source_ids`, `assumption_ids`, and `blocked_reason` visible.
+
+</details>
 
 ## Development
 
@@ -554,7 +363,13 @@ python3 -m unittest discover -s tests
 Compile-check scripts:
 
 ```bash
-python3 -m compileall -q skills/designing-growth-funnels/scripts tests
+python3 -m compileall -q skills/designing-growth-funnels/scripts tests scripts
+```
+
+Package-check the upload zip:
+
+```bash
+python3 scripts/install_skill.py zip --force
 ```
 
 Validate the skill metadata if your environment has the validator:
@@ -568,7 +383,7 @@ python3 /path/to/quick_validate.py skills/designing-growth-funnels
 This skill is intentionally conservative:
 
 - Python standard library only;
-- no network calls in bundled scripts;
+- network access only in explicitly run, read-only research collectors;
 - no credential or environment secret reads;
 - no execution of user-provided code;
 - scripts write only inside the workspace path passed by the user;

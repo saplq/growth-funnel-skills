@@ -51,17 +51,31 @@ def normalize_result(data: dict[str, Any]) -> dict[str, Any]:
             return value
         return [value]
 
+    def string_list(value: Any) -> list[str]:
+        return [str(item).strip() for item in listify(value) if str(item).strip()]
+
     return {
         "role": str(data.get("role", "")).strip(),
         "topic_id": str(data.get("topic_id", "")).strip(),
         "task_id": str(data.get("task_id", "")).strip(),
+        "specialist": str(data.get("specialist") or data.get("role") or "").strip(),
+        "objective": str(data.get("objective") or "").strip(),
         "summary": str(data.get("summary", "")).strip(),
-        "key_findings": [str(item).strip() for item in listify(data.get("key_findings")) if str(item).strip()],
+        "key_findings": string_list(data.get("key_findings")),
         "citations": listify(data.get("citations")),
         "freshness_date": str(data.get("freshness_date") or data.get("retrieved_at") or "").strip(),
         "confidence": str(data.get("confidence") or "unknown").strip(),
-        "open_questions": [str(item).strip() for item in listify(data.get("open_questions")) if str(item).strip()],
+        "open_questions": string_list(data.get("open_questions")),
         "next_action": str(data.get("next_action") or "").strip(),
+        "input_refs": string_list(data.get("input_refs")),
+        "context_refs": string_list(data.get("context_refs")),
+        "output_refs": string_list(data.get("output_refs")),
+        "artifact_refs": string_list(data.get("artifact_refs") or data.get("artifacts")),
+        "claim_ids": string_list(data.get("claim_ids")),
+        "source_ids": string_list(data.get("source_ids")),
+        "assumption_ids": string_list(data.get("assumption_ids")),
+        "blocked_reason": str(data.get("blocked_reason") or "").strip(),
+        "status": str(data.get("status") or "completed").strip(),
         "recorded_at": utc_now(),
     }
 
@@ -96,6 +110,12 @@ def update_task_status(workspace: Path, result: dict[str, Any]) -> None:
             task.get("role") == result["role"] and task.get("topic_id") == result["topic_id"]
         ):
             task["status"] = "completed"
+            if result.get("status"):
+                task["status"] = result["status"]
+            if result.get("objective"):
+                task["objective"] = result["objective"]
+            if result.get("blocked_reason"):
+                task["blocked_reason"] = result["blocked_reason"]
             task["summary"] = result["summary"]
             task["updated_at"] = result["recorded_at"]
             updated = True
@@ -105,8 +125,12 @@ def update_task_status(workspace: Path, result: dict[str, Any]) -> None:
                 "task_id": result["task_id"],
                 "role": result["role"],
                 "topic_id": result["topic_id"],
-                "status": "completed",
+                "status": result.get("status") or "completed",
+                "specialist": result.get("specialist") or result["role"],
+                "objective": result.get("objective") or result.get("next_action") or result["summary"],
                 "summary": result["summary"],
+                "blocked_reason": result.get("blocked_reason", ""),
+                "created_at": result["recorded_at"],
                 "updated_at": result["recorded_at"],
             }
         )

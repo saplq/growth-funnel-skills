@@ -5,11 +5,17 @@ Use this when rendering or reviewing `final/`.
 ## Requirements
 
 - `final/` contains only `.md` and `.html`.
+- Machine-readable launch handoffs belong in `exports/`, not `final/`.
 - Every Markdown file has a matching HTML page.
 - Markdown does not start with YAML frontmatter.
 - HTML is self-contained with inline CSS, semantic structure, navigation, and next/previous links.
 - Pages separate ready recommendations from blocked assumptions.
 - Evidence and competitor claims cite source rows by URL or title when available.
+- Niche profiles render as readable vocabulary, risks, proof formats, funnel defaults, and event suggestions, not raw `niche_profile` JSON.
+- Current-vs-proposed funnel changes render as a readable table, not raw `current_funnel_diff` JSON; missing current funnel is shown as an assumption, not invented current steps.
+- Copy/action variant bundles render as a readable table with hypothesis, event, proof requirement, and support refs, not raw `variant_bundles` JSON.
+- Reviewer approval renders as status plus review items, not raw `reviewer_approval` JSON; approval handoff files belong in `exports/`.
+- Orchestration/task-result contracts stay in `runtime/orchestration_contract.json` or `exports/orchestration_contract.*`, not `final/`.
 - HTML should make the decision faster to understand than raw Markdown: use callouts, compact tables, evidence/confidence badges, and risk heatmap styling.
 - Markdown should be readable as a standalone expert report, not a runtime dump.
 - Start pages and execution pages must include a plain operational pipeline: what to do, why, what the user gets, and which proof/data is missing.
@@ -26,6 +32,9 @@ Render from `runtime/insights.json`, not directly from loose text blobs. The obj
 - `experiments`
 - `risks`
 - `evidence_refs`
+- `current_funnel_diff`
+- `variant_bundles`
+- `reviewer_approval`
 - `assumptions`
 - `confidence`
 
