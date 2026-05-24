@@ -217,7 +217,7 @@ More niche prompts are in [EXAMPLES.md](EXAMPLES.md).
 4. Collect current sources when host web, browser, MCP, analytics, CRM, file, or local network tools are available; bundled collectors only cover best-effort public web and competitor discovery.
 5. Compile `runtime/insights.json`.
 6. Render `final/index.html`.
-7. Reply first with a clickable Markdown link to `final/index.html`, then scores, blockers, and next step.
+7. Reply first with a clickable Markdown link to `final/index.html` when it exists; during intake, link to `user_inputs/` and `00_next_input.md`, then show the single next input needed.
 
 ## Quality Model
 
@@ -253,16 +253,29 @@ Freshness rule: the repository does not hardcode "latest market data" because th
 <details>
 <summary><strong>Workspace and final pack</strong></summary>
 
-The skill creates a workspace with two layers:
+The skill creates a workspace with user input, runtime, final, and optional export areas:
 
 ```text
 funnel-workspace/
+├── user_inputs/ # editable Markdown templates for collecting better context
 ├── runtime/   # machine state, evidence, gaps, source registry, insights
 ├── final/     # user-facing Markdown and self-contained HTML
 └── exports/   # optional machine-readable launch handoff JSON/CSV
 ```
 
-`runtime/` is for the agent and audit trail, including `orchestration_contract.json` for task/result traceability. `final/` is for the user. `exports/` is created only by the launch export command and is for downstream implementation handoff.
+`user_inputs/` is safe to show to the user and contains fillable Markdown templates. `runtime/` is for the agent and audit trail, including `orchestration_contract.json` for task/result traceability. `final/` is for the user. `exports/` is created only by the launch export command and is for downstream implementation handoff.
+
+The input folder contains:
+
+```text
+user_inputs/
+├── README.md
+├── 00_next_input.md
+├── 01_minimum_brief.md
+├── 02_proof_metrics.md
+├── 03_current_funnel.md
+└── 04_competitors_research.md
+```
 
 The final pack contains:
 
@@ -305,6 +318,16 @@ Ingest notes:
 python3 skills/designing-growth-funnels/scripts/ingest_notes.py \
   ./workspaces/acme \
   --input ./notes/acme.txt \
+  --kind notes \
+  --json
+```
+
+Ingest a filled input template:
+
+```bash
+python3 skills/designing-growth-funnels/scripts/ingest_notes.py \
+  ./workspaces/acme \
+  --input ./workspaces/acme/user_inputs/01_minimum_brief.md \
   --kind notes \
   --json
 ```

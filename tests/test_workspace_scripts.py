@@ -56,6 +56,24 @@ def assert_runtime_contract(workspace: Path) -> None:
             raise AssertionError(f"missing runtime file: {path}")
 
 
+def assert_input_folder(workspace: Path) -> None:
+    inputs = workspace / "user_inputs"
+    expected = [
+        "README.md",
+        "00_next_input.md",
+        "01_minimum_brief.md",
+        "02_proof_metrics.md",
+        "03_current_funnel.md",
+        "04_competitors_research.md",
+    ]
+    for filename in expected:
+        path = inputs / filename
+        if not path.exists():
+            raise AssertionError(f"missing input file: {path}")
+        if path.stat().st_size == 0:
+            raise AssertionError(f"empty input file: {path}")
+
+
 def assert_final_pack(workspace: Path) -> None:
     final_dir = workspace / "final"
     expected = [
@@ -350,12 +368,48 @@ class WorkspaceScriptsTest(unittest.TestCase):
             )
 
             assert_runtime_contract(workspace)
+            assert_input_folder(workspace)
+            self.assertEqual(summary["input_dir"], str(workspace.resolve() / "user_inputs"))
+            self.assertEqual(summary["next_input_file"], str(workspace.resolve() / "user_inputs" / "00_next_input.md"))
+            self.assertGreaterEqual(len(summary["input_files"]), 5)
             self.assertLess(summary["completeness_score"], 20)
             self.assertIn("offer", summary["critical_missing_fields"])
             self.assertLessEqual(len(summary["next_best_input"]), 3)
             self.assertEqual(summary["source_count"], 0)
             self.assertEqual(summary["competitor_count"], 0)
             self.assertIn("source registry has no current sources", summary["evidence_gaps"])
+            next_input = (workspace / "user_inputs" / "00_next_input.md").read_text(encoding="utf-8")
+            minimum_brief = (workspace / "user_inputs" / "01_minimum_brief.md").read_text(encoding="utf-8")
+            self.assertIn("offer and promised result", next_input)
+            self.assertIn("Offer:", minimum_brief)
+
+    def test_blank_input_templates_do_not_create_false_proof(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "blank-inputs"
+            run_script("create_workspace.py", "--name", "Blank inputs", "--out", str(workspace), "--json")
+
+            run_script(
+                "ingest_notes.py",
+                str(workspace),
+                "--input",
+                str(workspace / "user_inputs" / "01_minimum_brief.md"),
+                "--kind",
+                "notes",
+                "--json",
+            )
+            run_script(
+                "ingest_notes.py",
+                str(workspace),
+                "--input",
+                str(workspace / "user_inputs" / "02_proof_metrics.md"),
+                "--kind",
+                "notes",
+                "--json",
+            )
+
+            intake = json.loads((workspace / "runtime" / "intake.json").read_text(encoding="utf-8"))
+            self.assertFalse(intake["explicit_no_proof_yet"])
+            self.assertEqual(intake["proof_assets"], [])
 
     def test_partial_notes_update_intake_and_keep_gate_blocked(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -413,6 +467,8 @@ class WorkspaceScriptsTest(unittest.TestCase):
 
             run_script("render_final.py", str(workspace), "--json")
             status_page = (workspace / "final" / "01_status_next_steps.md").read_text(encoding="utf-8")
+            self.assertIn("Папка для сбора данных", status_page)
+            self.assertIn(str(workspace / "user_inputs" / "00_next_input.md"), status_page)
             self.assertIn("дальше работаем на явных допущениях", status_page)
 
     def test_rich_notes_render_ready_final_pack(self) -> None:

@@ -94,6 +94,8 @@ LABELS = {
     "no more user data": "no_more_user_data",
     "no more data": "no_more_user_data",
     "data exhausted": "no_more_user_data",
+    "context exhausted": "no_more_user_data",
+    "контекст исчерпан": "no_more_user_data",
     "данных больше нет": "no_more_user_data",
     "больше данных нет": "no_more_user_data",
     "других данных нет": "no_more_user_data",
@@ -127,6 +129,10 @@ def normalize_label(label: str) -> str:
     return re.sub(r"\s+", " ", label.strip().lower().replace("_", " "))
 
 
+def truthy_text(value: str) -> bool:
+    return value.strip().lower() in {"1", "true", "yes", "y", "on", "да", "истина"}
+
+
 def parse_labeled_updates(text: str) -> dict[str, Any]:
     updates: dict[str, Any] = {}
     for line in text.splitlines():
@@ -135,6 +141,9 @@ def parse_labeled_updates(text: str) -> dict[str, Any]:
         label, value = line.split(":", 1)
         key = LABELS.get(normalize_label(label))
         if key and value.strip():
+            if key == "no_more_user_data":
+                updates[key] = truthy_text(value) or bool(re.search(r"\b(exhausted|nothing else|complete)\b|(исчерпан|больше нет|достаточно)", value, re.IGNORECASE))
+                continue
             updates[key] = value.strip()
     if re.search(r"\b(no proof yet|no proof|no proofs|no case studies|no testimonials)\b", text, re.IGNORECASE) or re.search(r"(нет доказательств|нет кейсов|нет отзывов)", text, re.IGNORECASE):
         updates["explicit_no_proof_yet"] = True
@@ -204,6 +213,12 @@ def extract_proofs(text: str) -> list[str]:
     negative = re.compile(r"\b(no proof|no proofs|no case studies|no testimonials)\b|(нет доказательств|нет кейсов|нет отзывов)", re.IGNORECASE)
     for line in text.splitlines():
         clean = line.strip(" -\t")
+        if not clean or clean.startswith("#") or clean.lower().startswith(("add any ", "each line ", "добавьте ", "каждая строка ")):
+            continue
+        if ":" in clean:
+            label, value = clean.split(":", 1)
+            if not value.strip():
+                continue
         if clean.lower().startswith("competitor:") or clean.lower().startswith("конкурент:"):
             continue
         if clean and proof_terms.search(clean) and not negative.search(clean):

@@ -43,6 +43,16 @@ Default decision:
 
 ## Intake Behavior
 
+Every workspace should expose `user_inputs/`:
+
+- `00_next_input.md`: generated checklist of the nearest missing input.
+- `01_minimum_brief.md`: editable minimum gate brief.
+- `02_proof_metrics.md`: proof, metrics, cases, screenshots, links, and constraints.
+- `03_current_funnel.md`: current user path and weak steps.
+- `04_competitors_research.md`: competitors, sources, pricing, CTAs, and onboarding notes.
+
+When the user asks how to start, link to the folder and `00_next_input.md` first. Ingest filled files with `ingest_notes.py` before asking more questions.
+
 Before the minimum gate is complete, write up to 3 prioritized questions into `next_best_input`, but ask the user only one question at a time in chat. Choose missing fields by impact:
 
 1. target KPI;

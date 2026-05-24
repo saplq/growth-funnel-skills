@@ -32,12 +32,13 @@ Use these principles while synthesizing:
 
 1. Create or update a workspace before writing recommendations.
 2. Infer the user's conversation language and pass it as `--language`.
-3. Ingest pasted notes, documents, metrics, research, competitor observations, or specialist outputs into `runtime/`.
-4. Validate after every meaningful update.
-5. Run live research for current-sensitive claims when host web, browser, MCP, analytics, CRM, or file tools are available. Use bundled collectors only for best-effort public web and competitor discovery; otherwise use host tools and record normalized source rows. If no live research path exists, the pack may still be ready to test when every recommendation is explicitly assumption-backed and launch blockers stay visible.
-6. Compile `runtime/insights.json` before rendering. Every recommendation must point to evidence or an explicit assumption.
-7. Render `final/` only after validation, even if some recommendations stay blocked.
-8. Finish the chat response with the clickable main HTML link first, then scores, blockers, and the next smallest useful input. Use `final_index_chat_link` from `render_final.py` when available. If building the link manually, use Markdown with an absolute local path: `[Открыть финальный HTML](/absolute/path/final/index.html)` or `[Open final HTML](/absolute/path/final/index.html)`. If the path contains spaces, wrap only the link target in angle brackets. Do not use `file://`, a code block, or an `open ...` command as the primary way to open the report. Mention changed runtime files only when useful for debugging.
+3. Show the user the generated `user_inputs/` folder and the highest-priority file to fill before asking extra questions.
+4. Ingest pasted notes, filled input files, documents, metrics, research, competitor observations, or specialist outputs into `runtime/`.
+5. Validate after every meaningful update.
+6. Run live research for current-sensitive claims when host web, browser, MCP, analytics, CRM, or file tools are available. Use bundled collectors only for best-effort public web and competitor discovery; otherwise use host tools and record normalized source rows. If no live research path exists, the pack may still be ready to test when every recommendation is explicitly assumption-backed and launch blockers stay visible.
+7. Compile `runtime/insights.json` before rendering. Every recommendation must point to evidence or an explicit assumption.
+8. Render `final/` only after validation, even if some recommendations stay blocked.
+9. Finish the chat response with the clickable main HTML link first when a final exists; otherwise start with the clickable `user_inputs/` folder and `00_next_input.md`. Always include the next smallest useful input. Use `final_index_chat_link` from `render_final.py` when available. If building links manually, use Markdown with absolute local paths: `[Открыть финальный HTML](/absolute/path/final/index.html)`, `[Папка для данных](/absolute/path/user_inputs)`, `[Что заполнить дальше](/absolute/path/user_inputs/00_next_input.md)`. Do not use `file://`, a code block, or an `open ...` command as the primary way to open files.
 
 Run bundled scripts yourself when filesystem access exists:
 
@@ -53,10 +54,11 @@ python3 scripts/export_launch.py "<workspace-dir>" --json
 
 ## Workspace Contract
 
-The workspace has two layers:
+The workspace has four areas:
 
 - `runtime/`: machine state, source ledger, task state, gaps, and normalized evidence.
 - `final/`: user-facing Markdown and self-contained HTML only.
+- `user_inputs/`: editable Markdown templates for user context collection; safe to show and ask the user to fill.
 - `exports/`: optional machine-readable launch handoff JSON/CSV, generated only when explicitly requested.
 
 Do not put YAML, CSV, JSON, JSONL, traces, or separate CSS files in `final/`.

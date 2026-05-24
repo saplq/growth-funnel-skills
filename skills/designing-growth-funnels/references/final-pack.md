@@ -20,6 +20,7 @@ Use this when rendering or reviewing `final/`.
 - HTML should make the decision faster to understand than raw Markdown: use callouts, compact tables, evidence/confidence badges, and risk heatmap styling.
 - Markdown should be readable as a standalone expert report, not a runtime dump.
 - Start pages and execution pages must include a plain operational pipeline: what to do, why, what the user gets, and which proof/data is missing.
+- Status/next-step pages must show the `user_inputs/` folder path and `00_next_input.md` so the user knows exactly where to add missing context.
 - Localized output should use the user's business vocabulary. In Russian output, avoid untranslated internal labels such as "CTA", "guardrail", "support", "skeleton", "ICP", and raw snake_case path names unless they appear inside technical event/file identifiers.
 - The agent's final chat message must lead with a clickable Markdown link to the absolute `final/index.html` file. Prefer the `final_index_chat_link` value returned by `render_final.py`.
 

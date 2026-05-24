@@ -17,6 +17,7 @@ from workspace_lib import (
     ensure_workspace,
     final_dir,
     final_leakage,
+    input_dir,
     is_russian,
     load_workspace,
     markdown_to_html,
@@ -360,6 +361,8 @@ def render_status(data: dict[str, Any]) -> str:
     next_input = state.get("next_best_input", [])
     no_more_user_data = truthy(state.get("no_more_user_data") or data["intake"].get("no_more_user_data"))
     path_label = summary.get("path_label") or skeleton_label(str(summary.get("skeleton") or ""), ru)
+    input_directory = str(input_dir(data["workspace"]).resolve())
+    next_input_file = str((input_dir(data["workspace"]) / "00_next_input.md").resolve())
     next_input_fallback = (
         "дальше работаем на явных допущениях; новых данных от пользователя не требуется"
         if no_more_user_data
@@ -391,6 +394,12 @@ def render_status(data: dict[str, Any]) -> str:
 | Готовность к рабочей воронке | {state.get('scores', {}).get('qualification', 0)}/100 |
 | Готовность данных | {state.get('scores', {}).get('research_readiness', 0)}/100 |
 | Решение системы | {table_cell(decision_label(str(state.get('decision') or ''), ru), ru)} |
+
+## Папка для сбора данных
+
+- Папка: {input_directory}
+- Что заполнить дальше: {next_input_file}
+- Основной бриф: {input_directory}/01_minimum_brief.md
 
 ## Проверка перед запуском
 
@@ -424,6 +433,12 @@ def render_status(data: dict[str, Any]) -> str:
 | Qualification | {state.get('scores', {}).get('qualification', 0)}/100 |
 | Research readiness | {state.get('scores', {}).get('research_readiness', 0)}/100 |
 | System decision | `{table_cell(state.get('decision'))}` |
+
+## Input Folder
+
+- Folder: {input_directory}
+- Next input checklist: {next_input_file}
+- Main brief: {input_directory}/01_minimum_brief.md
 
 ## Reviewer Approval
 

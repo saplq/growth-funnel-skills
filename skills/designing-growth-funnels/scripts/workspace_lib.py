@@ -14,7 +14,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 
-VERSION = "2.3.1"
+VERSION = "2.4.0"
 
 READY_MIN_COMPETITORS = 3
 
@@ -548,6 +548,10 @@ def exports_dir(workspace: Path) -> Path:
     return workspace / "exports"
 
 
+def input_dir(workspace: Path) -> Path:
+    return workspace / "user_inputs"
+
+
 def runtime_path(workspace: Path, filename: str) -> Path:
     return runtime_dir(workspace) / filename
 
@@ -556,8 +560,20 @@ def export_path(workspace: Path, filename: str) -> Path:
     return exports_dir(workspace) / filename
 
 
+def input_path(workspace: Path, filename: str) -> Path:
+    return input_dir(workspace) / filename
+
+
 def ensure_exports_dir(workspace: Path) -> Path:
     directory = exports_dir(workspace)
+    reject_symlink(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    reject_symlink(directory)
+    return directory
+
+
+def ensure_input_dir(workspace: Path) -> Path:
+    directory = input_dir(workspace)
     reject_symlink(directory)
     directory.mkdir(parents=True, exist_ok=True)
     reject_symlink(directory)
@@ -572,6 +588,12 @@ def reject_symlink(path: Path) -> None:
 def write_text_file(path: Path, text: str) -> None:
     reject_symlink(path)
     path.write_text(text, encoding="utf-8")
+
+
+def write_text_file_if_missing(path: Path, text: str) -> None:
+    reject_symlink(path)
+    if not path.exists():
+        path.write_text(text, encoding="utf-8")
 
 
 def merge_missing_fields(target: dict[str, Any], incoming: dict[str, Any]) -> bool:
@@ -709,7 +731,7 @@ def default_orchestration_contract(language: str = "English") -> dict[str, Any]:
 
 def ensure_workspace(workspace: Path, name: str | None = None, language: str = "English") -> dict[str, Any]:
     workspace.mkdir(parents=True, exist_ok=True)
-    for directory in [runtime_dir(workspace), final_dir(workspace)]:
+    for directory in [runtime_dir(workspace), final_dir(workspace), input_dir(workspace)]:
         reject_symlink(directory)
         directory.mkdir(parents=True, exist_ok=True)
         reject_symlink(directory)
@@ -766,6 +788,7 @@ def ensure_workspace(workspace: Path, name: str | None = None, language: str = "
     write_json(intake_path, data["intake"])
     write_json(gaps_path, data["gaps"] if isinstance(data.get("gaps"), dict) else default_gaps(data["state"]["output_language"]))
     write_json(insights_path, data["insights"] if isinstance(data.get("insights"), dict) else default_insights(data["state"]["output_language"]))
+    ensure_input_templates(workspace, data)
     return data
 
 
@@ -781,6 +804,291 @@ def default_gaps(language: str = "English") -> dict[str, Any]:
         "updated_at": utc_now(),
         "output_language": language,
     }
+
+
+def input_file_purposes(language: str) -> list[tuple[str, str]]:
+    ru = is_russian(language)
+    if ru:
+        return [
+            ("00_next_input.md", "сгенерированный список того, что заполнить следующим"),
+            ("01_minimum_brief.md", "минимальный контекст: оффер, аудитория, метрика, канал, статус подтверждений"),
+            ("02_proof_metrics.md", "подтверждения, метрики, скриншоты, кейсы, ссылки и ограничения"),
+            ("03_current_funnel.md", "текущие шаги воронки, экраны, бот, письма, вебинар или CRM-этапы"),
+            ("04_competitors_research.md", "конкуренты, источники, цены, призывы, онбординг и свежие наблюдения"),
+        ]
+    return [
+        ("00_next_input.md", "generated checklist for the next context input"),
+        ("01_minimum_brief.md", "minimum context: offer, audience, metric, channel, proof state"),
+        ("02_proof_metrics.md", "proof, metrics, screenshots, cases, links, and constraints"),
+        ("03_current_funnel.md", "current funnel steps, screens, bot, email, webinar, or CRM stages"),
+        ("04_competitors_research.md", "competitors, sources, pricing, CTAs, onboarding, and current observations"),
+    ]
+
+
+def input_file_manifest(workspace: Path, language: str) -> list[dict[str, str]]:
+    return [
+        {"file": filename, "path": str(input_path(workspace, filename)), "purpose": purpose}
+        for filename, purpose in input_file_purposes(language)
+    ]
+
+
+def missing_field_label(field: str, ru: bool) -> str:
+    labels = {
+        "offer": ("оффер и обещаемый результат", "offer and promised result"),
+        "icp_or_primary_persona": ("целевая аудитория или основная персона", "ICP or primary persona"),
+        "target_kpi": ("одна главная метрика", "one target KPI"),
+        "primary_channel": ("основной канал трафика или лидов", "primary traffic or lead channel"),
+        "proof_assets_or_explicit_no_proof_yet": ("подтверждения результата или честный статус их отсутствия", "proof assets or an honest absent-proof state"),
+    }
+    ru_label, en_label = labels.get(field, (field, field))
+    return ru_label if ru else en_label
+
+
+def input_readme_template(language: str) -> str:
+    ru = is_russian(language)
+    if ru:
+        return """# Папка сбора данных для growth funnel
+
+Заполняйте Markdown-файлы в этой папке обычным текстом. Важные строки вида `Offer:` и `Channel:` лучше не переименовывать: скрипт умеет распознавать эти labels.
+
+Порядок работы:
+
+1. Откройте `00_next_input.md` и заполните то, что там отмечено как ближайший ввод.
+2. Заполните `01_minimum_brief.md` хотя бы по минимальному набору.
+3. Если есть цифры, кейсы, скриншоты, ссылки или конкуренты, добавьте их в остальные файлы.
+4. Если контекст исчерпан, заполните поле `Context exhausted:` значением `true`.
+
+После заполнения агент должен ingest-нуть обновленные файлы и снова запустить validation/render. Если данных все еще не хватает, он задаст один самый важный вопрос.
+"""
+    return """# Growth funnel input folder
+
+Fill the Markdown files in this folder with plain text. Keep labeled lines such as `Offer:` and `Channel:` when possible because the ingestion script recognizes them.
+
+Workflow:
+
+1. Open `00_next_input.md` and fill the nearest requested input.
+2. Fill `01_minimum_brief.md` at least through the minimum gate.
+3. Add numbers, cases, screenshots, links, or competitors in the other files when available.
+4. If context is exhausted, set `Context exhausted:` to `true`.
+
+After the files are filled, the agent should ingest the updated files and rerun validation/render. If context is still insufficient, it will ask the single highest-impact question.
+"""
+
+
+def minimum_brief_template(name: str, language: str) -> str:
+    ru = is_russian(language)
+    if ru:
+        return f"""# 01 Minimum Brief
+
+Заполните значения после двоеточия. Можно писать грубо и неполно.
+
+Project: {name}
+Offer:
+ICP:
+Primary persona:
+Target KPI:
+Channel:
+Current funnel:
+Pricing:
+TTFV:
+Sales motion:
+Constraints:
+Implementation bandwidth:
+Experiment bandwidth:
+Reviewer approval:
+Context exhausted:
+"""
+    return f"""# 01 Minimum Brief
+
+Fill values after the colon. Rough, incomplete input is acceptable.
+
+Project: {name}
+Offer:
+ICP:
+Primary persona:
+Target KPI:
+Channel:
+Current funnel:
+Pricing:
+TTFV:
+Sales motion:
+Constraints:
+Implementation bandwidth:
+Experiment bandwidth:
+Reviewer approval:
+Context exhausted:
+"""
+
+
+def proof_metrics_template(language: str) -> str:
+    ru = is_russian(language)
+    if ru:
+        return """# 02 Proof And Metrics
+
+Добавьте любые подтверждения, цифры и ограничения. Каждая строка может быть обычной заметкой.
+
+Proof:
+Metric:
+Conversion:
+Activation:
+Retention:
+Revenue:
+Source:
+Constraint:
+Notes:
+"""
+    return """# 02 Proof And Metrics
+
+Add any proof, numbers, and constraints. Each line can be a plain note.
+
+Proof:
+Metric:
+Conversion:
+Activation:
+Retention:
+Revenue:
+Source:
+Constraint:
+Notes:
+"""
+
+
+def current_funnel_template(language: str) -> str:
+    ru = is_russian(language)
+    if ru:
+        return """# 03 Current Funnel
+
+Опишите текущий путь пользователя. Можно одной строкой через `->` или списком.
+
+Current funnel:
+
+-
+-
+-
+
+Weakest step:
+Main objection:
+First value moment:
+"""
+    return """# 03 Current Funnel
+
+Describe the current user path. Use one `->` line or a list.
+
+Current funnel:
+
+-
+-
+-
+
+Weakest step:
+Main objection:
+First value moment:
+"""
+
+
+def competitors_research_template(language: str) -> str:
+    ru = is_russian(language)
+    if ru:
+        return """# 04 Competitors And Research
+
+Добавьте конкурентов и свежие источники. Для конкурентов используйте формат строки ниже, оставляя пустым то, чего нет.
+
+Competitor:  | source:  | retrieved:  | CTA:  | pricing:  | onboarding:  | proof:
+Competitor:  | source:  | retrieved:  | CTA:  | pricing:  | onboarding:  | proof:
+Competitor:  | source:  | retrieved:  | CTA:  | pricing:  | onboarding:  | proof:
+
+Source:
+Research notes:
+"""
+    return """# 04 Competitors And Research
+
+Add competitors and current sources. For competitors, use the row format below and leave unknown fields blank.
+
+Competitor:  | source:  | retrieved:  | CTA:  | pricing:  | onboarding:  | proof:
+Competitor:  | source:  | retrieved:  | CTA:  | pricing:  | onboarding:  | proof:
+Competitor:  | source:  | retrieved:  | CTA:  | pricing:  | onboarding:  | proof:
+
+Source:
+Research notes:
+"""
+
+
+def next_input_template(data: dict[str, Any], missing: list[str] | None = None, questions: list[str] | None = None) -> str:
+    language = output_language(data)
+    ru = is_russian(language)
+    intake = data.get("intake", {})
+    missing = missing if missing is not None else missing_fields(intake)
+    questions = questions if questions is not None else next_best_input(data)
+    gate = not missing
+    exhausted = truthy(intake.get("no_more_user_data"))
+    if ru:
+        missing_lines = "\n".join(f"- {missing_field_label(field, True)}" for field in missing) or "- минимальный набор заполнен"
+        question_lines = "\n".join(f"- {question}" for question in questions)
+        if not question_lines:
+            question_lines = "- новых вопросов нет; дальше работаем на явных допущениях" if exhausted else "- назначьте владельца первого эксперимента или добавьте источники"
+        return f"""# Следующий ввод
+
+Статус минимального набора: {"заполнен" if gate else "не заполнен"}
+
+## Что нужно заполнить
+
+{missing_lines}
+
+## Один лучший следующий вопрос
+
+{question_lines}
+
+## Куда писать
+
+- Минимум для старта: `01_minimum_brief.md`
+- Подтверждения и цифры: `02_proof_metrics.md`
+- Текущий путь пользователя: `03_current_funnel.md`
+- Конкуренты и источники: `04_competitors_research.md`
+
+После правок попросите агента ingest-нуть файлы из `user_inputs/` и перерендерить отчет.
+"""
+    missing_lines = "\n".join(f"- {missing_field_label(field, False)}" for field in missing) or "- minimum gate is complete"
+    question_lines = "\n".join(f"- {question}" for question in questions)
+    if not question_lines:
+        question_lines = "- no further questions; continue with explicit assumptions" if exhausted else "- assign the first experiment owner or add sources"
+    return f"""# Next Input
+
+Minimum gate status: {"complete" if gate else "incomplete"}
+
+## What To Fill
+
+{missing_lines}
+
+## Single Best Next Question
+
+{question_lines}
+
+## Where To Write
+
+- Minimum start context: `01_minimum_brief.md`
+- Proof and numbers: `02_proof_metrics.md`
+- Current user path: `03_current_funnel.md`
+- Competitors and sources: `04_competitors_research.md`
+
+After editing, ask the agent to ingest files from `user_inputs/` and rerender the report.
+"""
+
+
+def ensure_input_templates(
+    workspace: Path,
+    data: dict[str, Any],
+    missing: list[str] | None = None,
+    questions: list[str] | None = None,
+) -> None:
+    directory = ensure_input_dir(workspace)
+    language = output_language(data)
+    name = str(data.get("intake", {}).get("project_name") or data.get("state", {}).get("workspace_name") or workspace.name)
+    write_text_file_if_missing(directory / "README.md", input_readme_template(language))
+    write_text_file_if_missing(directory / "01_minimum_brief.md", minimum_brief_template(name, language))
+    write_text_file_if_missing(directory / "02_proof_metrics.md", proof_metrics_template(language))
+    write_text_file_if_missing(directory / "03_current_funnel.md", current_funnel_template(language))
+    write_text_file_if_missing(directory / "04_competitors_research.md", competitors_research_template(language))
+    write_text_file(directory / "00_next_input.md", next_input_template(data, missing=missing, questions=questions))
 
 
 def load_workspace(workspace: Path) -> dict[str, Any]:
@@ -4771,6 +5079,7 @@ def validate_and_write(workspace: Path) -> dict[str, Any]:
             "decision": decision(qualification),
             "source_count": len(data["sources"]),
             "competitor_count": len(data["competitors"]),
+            "input_dir": str(input_dir(workspace)),
         }
     )
 
@@ -4806,12 +5115,16 @@ def validate_and_write(workspace: Path) -> dict[str, Any]:
     write_json(runtime_path(workspace, "gaps.json"), gaps)
     write_json(runtime_path(workspace, "topics.json"), topics)
     write_json(runtime_path(workspace, "insights.json"), insights)
+    ensure_input_templates(workspace, data, missing=missing, questions=questions)
 
     summary = {
         "version": VERSION,
         "workspace": str(workspace),
         "runtime_dir": str(runtime_dir(workspace)),
         "final_dir": str(final_dir(workspace)),
+        "input_dir": str(input_dir(workspace)),
+        "next_input_file": str(input_path(workspace, "00_next_input.md")),
+        "input_files": input_file_manifest(workspace, language),
         "output_language": language,
         "phase": phase,
         "minimum_gate_satisfied": gate,
