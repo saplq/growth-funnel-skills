@@ -14,7 +14,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 
-VERSION = "2.3.0"
+VERSION = "2.3.1"
 
 READY_MIN_COMPETITORS = 3
 
@@ -606,6 +606,7 @@ def default_intake(name: str, language: str) -> dict[str, Any]:
         "experiment_bandwidth": "",
         "reviewer_approval": "",
         "explicit_no_proof_yet": False,
+        "no_more_user_data": False,
         "proof_assets": [],
         "metrics": [],
         "assumptions": [],
@@ -1284,6 +1285,7 @@ def artifact_status(data: dict[str, Any]) -> dict[str, str]:
 
 def next_best_input(data: dict[str, Any], limit: int = 3) -> list[str]:
     ru = is_russian(data)
+    intake = data.get("intake", {})
     questions = {
         "offer": "Какой оффер и какой результат он обещает?" if ru else "What is the offer and promised result?",
         "icp_or_primary_persona": "Кто основная целевая аудитория или ключевой тип клиента?" if ru else "Who is the ICP or primary persona?",
@@ -1292,8 +1294,10 @@ def next_best_input(data: dict[str, Any], limit: int = 3) -> list[str]:
         "proof_assets_or_explicit_no_proof_yet": "Есть доказательства результата, или явно пометить, что доказательств пока нет?" if ru else "Do you have proof assets, or should this be marked no proof yet?",
     }
     priority = ["target_kpi", "offer", "icp_or_primary_persona", "primary_channel", "proof_assets_or_explicit_no_proof_yet"]
-    missing = missing_fields(data.get("intake", {}))
+    missing = missing_fields(intake)
     result = [questions[field] for field in priority if field in missing]
+    if not result and truthy(intake.get("no_more_user_data")):
+        return []
     if not result:
         result = post_gate_questions(data)
         limit = min(limit, 2)
@@ -4751,6 +4755,7 @@ def validate_and_write(workspace: Path) -> dict[str, Any]:
             "minimum_gate_satisfied": gate,
             "ready_to_test": ready,
             "ready_for_launch": False,
+            "no_more_user_data": truthy(data["intake"].get("no_more_user_data")),
             "scores": {
                 "completeness": completeness,
                 "qualification": qualification,

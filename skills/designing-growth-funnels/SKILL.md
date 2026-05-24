@@ -101,7 +101,7 @@ Do not present final funnel recommendations as ready until these are present:
 
 If the gate is incomplete, create the workspace, mark blocked items, store up to 3 prioritized questions in `next_best_input`, and ask the user only the single highest-impact question in chat.
 
-After the gate is complete, ask at most 2 topic-specific clarify questions only when they can materially improve the decision. Prefer questions about priority segment, current weak screen or bot step, main objection, first-value moment, proof gap, or experiment owner.
+After the gate is complete, ask at most 2 topic-specific clarify questions only when they can materially improve the decision. Prefer questions about priority segment, current weak screen or bot step, main objection, first-value moment, proof gap, or experiment owner. If the user says there is no more data, do not keep interviewing after the minimum gate is satisfied; set `no_more_user_data=true`, use explicit assumptions, and keep launch blockers visible.
 
 Use two levels of readiness:
 

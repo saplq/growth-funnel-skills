@@ -25,6 +25,7 @@ from workspace_lib import (
     decision_label,
     select_funnel_skeleton,
     skeleton_label,
+    truthy,
     ui_text,
     validate_and_write,
     write_final_page,
@@ -357,7 +358,18 @@ def render_status(data: dict[str, Any]) -> str:
     reviewer_approval = item.get("reviewer_approval") if isinstance(item.get("reviewer_approval"), dict) else {}
     missing = state.get("critical_missing_fields", [])
     next_input = state.get("next_best_input", [])
+    no_more_user_data = truthy(state.get("no_more_user_data") or data["intake"].get("no_more_user_data"))
     path_label = summary.get("path_label") or skeleton_label(str(summary.get("skeleton") or ""), ru)
+    next_input_fallback = (
+        "дальше работаем на явных допущениях; новых данных от пользователя не требуется"
+        if no_more_user_data
+        else "назначить владельца первого эксперимента"
+    )
+    english_next_input_fallback = (
+        "continue with explicit assumptions; no further user data requested"
+        if no_more_user_data
+        else "assign the first experiment owner"
+    )
     if ru:
         return f"""# Резюме решения
 
@@ -390,7 +402,7 @@ def render_status(data: dict[str, Any]) -> str:
 
 ## Следующий точный ввод
 
-{bullet_list(next_input, 'назначить владельца первого эксперимента', ru)}
+{bullet_list(next_input, next_input_fallback, ru)}
 """
     return f"""# Decision Summary
 
@@ -423,7 +435,7 @@ def render_status(data: dict[str, Any]) -> str:
 
 ## Next Precise Input
 
-{bullet_list(next_input, 'assign the first experiment owner', ru)}
+{bullet_list(next_input, english_next_input_fallback, ru)}
 """
 
 

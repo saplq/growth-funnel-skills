@@ -382,6 +382,39 @@ class WorkspaceScriptsTest(unittest.TestCase):
             self.assertIn("target_kpi", result["summary"]["critical_missing_fields"])
             self.assertFalse(result["summary"]["minimum_gate_satisfied"])
 
+    def test_no_more_user_data_stops_post_gate_questions(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "no-more-user-data"
+            run_script("create_workspace.py", "--name", "No More User Data", "--out", str(workspace), "--json")
+            result = run_script(
+                "ingest_notes.py",
+                str(workspace),
+                "--input",
+                "-",
+                "--kind",
+                "notes",
+                "--json",
+                input_text=(
+                    "Оффер: аудит CRM и план очистки базы для агентств\n"
+                    "Целевая аудитория: владельцы маркетинговых агентств\n"
+                    "Метрика: доля лидов с заполненным следующим шагом\n"
+                    "Канал: холодный outbound\n"
+                    "Нет доказательств пока.\n"
+                    "Данных больше нет, работай на допущениях.\n"
+                ),
+            )
+
+            state = json.loads((workspace / "runtime" / "run_state.json").read_text(encoding="utf-8"))
+
+            self.assertIn("no_more_user_data", result["changed"]["intake"])
+            self.assertTrue(state["minimum_gate_satisfied"])
+            self.assertTrue(state["no_more_user_data"])
+            self.assertEqual(state["next_best_input"], [])
+
+            run_script("render_final.py", str(workspace), "--json")
+            status_page = (workspace / "final" / "01_status_next_steps.md").read_text(encoding="utf-8")
+            self.assertIn("дальше работаем на явных допущениях", status_page)
+
     def test_rich_notes_render_ready_final_pack(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp) / "rich"

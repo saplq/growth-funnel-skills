@@ -20,6 +20,7 @@ Use this when collecting context, scoring readiness, or deciding what to ask nex
 - `unit_economics`
 - `implementation_bandwidth`
 - `experiment_bandwidth`
+- `no_more_user_data`: user explicitly says there is no more context to provide.
 
 ## Scoring
 
@@ -58,6 +59,8 @@ After the minimum gate is complete, ask at most 2 clarify questions. They should
 - first-value moment and time to first value;
 - proof gap or strongest proof asset;
 - owner and launch date for the first experiment.
+
+If `no_more_user_data=true`, do not keep interviewing after the minimum gate is complete. Continue with explicit assumptions, show what is assumption-backed, and keep launch blockers visible.
 
 Prefer rough input over waiting for perfect input. Mark assumptions clearly.
 

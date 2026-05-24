@@ -91,6 +91,14 @@ LABELS = {
     "апрув": "reviewer_approval",
     "согласование": "reviewer_approval",
     "ревьюер": "reviewer_approval",
+    "no more user data": "no_more_user_data",
+    "no more data": "no_more_user_data",
+    "data exhausted": "no_more_user_data",
+    "данных больше нет": "no_more_user_data",
+    "больше данных нет": "no_more_user_data",
+    "других данных нет": "no_more_user_data",
+    "не задавать вопросы": "no_more_user_data",
+    "не спрашивать больше": "no_more_user_data",
     "language": "output_language",
     "язык": "output_language",
 }
@@ -130,6 +138,8 @@ def parse_labeled_updates(text: str) -> dict[str, Any]:
             updates[key] = value.strip()
     if re.search(r"\b(no proof yet|no proof|no proofs|no case studies|no testimonials)\b", text, re.IGNORECASE) or re.search(r"(нет доказательств|нет кейсов|нет отзывов)", text, re.IGNORECASE):
         updates["explicit_no_proof_yet"] = True
+    if re.search(r"\b(no more user data|no more data|data exhausted|nothing else to add|do not ask more questions|work with assumptions)\b", text, re.IGNORECASE) or re.search(r"(данных больше нет|больше данных нет|других данных нет|не задавай(?:те)? уточняющие вопросы|не спрашивай(?:те)? больше|работай(?:те)? на допущениях)", text, re.IGNORECASE):
+        updates["no_more_user_data"] = True
     current_funnel = extract_current_funnel_steps(text)
     if current_funnel:
         updates["current_funnel"] = current_funnel
