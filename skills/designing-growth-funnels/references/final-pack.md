@@ -8,7 +8,8 @@ Use this when rendering or reviewing `final/`.
 - Machine-readable launch handoffs belong in `exports/`, not `final/`.
 - Every Markdown file has a matching HTML page.
 - Markdown does not start with YAML frontmatter.
-- HTML is self-contained with inline CSS, semantic structure, navigation, and next/previous links.
+- Per-page HTML is self-contained with inline CSS, semantic structure, navigation, and next/previous links.
+- `standalone.html` is the portable artifact file: it contains all sections in one document, uses inline CSS and internal `#section` navigation only, and does not link to sibling `.html` files.
 - Pages separate ready-to-test recommendations from launch blockers.
 - Evidence and competitor claims cite source rows by URL or title when available.
 - Niche profiles render as readable vocabulary, risks, proof formats, funnel defaults, and event suggestions, not raw `niche_profile` JSON.
@@ -22,7 +23,7 @@ Use this when rendering or reviewing `final/`.
 - Start pages and execution pages must include a plain operational pipeline: what to do, why, what the user gets, and which proof/data is missing.
 - Status/next-step pages must show the `user_inputs/` folder path and `00_next_input.md` so the user knows exactly where to add missing context.
 - Localized output should use the user's business vocabulary. In Russian output, avoid untranslated internal labels such as "CTA", "guardrail", "support", "skeleton", "ICP", and raw snake_case path names unless they appear inside technical event/file identifiers.
-- The agent's final chat message must lead with a clickable Markdown link to the absolute `final/index.html` file. Prefer the `final_index_chat_link` value returned by `render_final.py`.
+- The agent's final chat message must lead with `final_standalone_chat_link` when available. Use `final_index_chat_link` only as a local navigation fallback. Hosted artifact surfaces such as Claude.ai and ChatGPT should present or attach `final/standalone.html`, not manually constructed CDN URLs and not child-page links.
 
 ## Insight Layer
 
@@ -68,4 +69,4 @@ Keep legacy filenames for compatibility, but render them in a user-first order:
 - `ready_for_launch` is true only when evidence, proof, approval, and row-level launch blockers are clear.
 - Russian output does not keep English UI strings such as "Intake brief", "Research evidence", "Previous", or "Next".
 - Russian output explains the launch pipeline in plain language: "что сделать", "зачем", and "что получишь".
-- Final handoff is not just a raw path or shell command; it includes a clickable local-file Markdown link to `final/index.html`.
+- Final handoff is not just a raw path or shell command; it includes a clickable local-file Markdown link to `final/standalone.html`, with `final/index.html` only as an optional local fallback.

@@ -32,7 +32,7 @@ The final output is a human-readable decision package in `final/`:
 | Experiment | first experiment card, decision rule, postmortem loop |
 | Execution | risks, constraints, next steps |
 
-When explicitly exported, machine-readable launch handoff files are written to `exports/`, not `final/`.
+When explicitly exported, machine-readable launch handoff files are written to `exports/`, not `final/`. For non-technical users and hosted artifact surfaces, the portable output is `final/standalone.html`: one self-contained HTML file with inline CSS and internal navigation.
 
 ## Good Fit
 
@@ -216,8 +216,8 @@ More niche prompts are in [EXAMPLES.md](EXAMPLES.md).
 3. Validate whether the minimum funnel gate is complete.
 4. Collect current sources when host web, browser, MCP, analytics, CRM, file, or local network tools are available; bundled collectors only cover best-effort public web and competitor discovery.
 5. Compile `runtime/insights.json`.
-6. Render `final/index.html`.
-7. Reply first with a clickable Markdown link to `final/index.html` when it exists; during intake, link to `user_inputs/` and `00_next_input.md`, then show the single next input needed.
+6. Render `final/standalone.html`, `final/index.html`, and the legacy per-page Markdown/HTML files.
+7. Reply first with a clickable Markdown link to `final/standalone.html` when it exists; during intake, link to `user_inputs/` and `00_next_input.md`, then show the single next input needed. Use `final/index.html` as a local navigation fallback, not as the primary artifact for Claude.ai or ChatGPT.
 
 ## Quality Model
 
@@ -284,6 +284,7 @@ The final pack contains:
 ```text
 final/
 ├── index.html
+├── standalone.html
 ├── 00_index.md / 00_index.html
 ├── 01_status_next_steps.md / .html
 ├── 02_intake_brief.md / .html
@@ -296,6 +297,8 @@ final/
 ├── 09_risks_and_gaps.md / .html
 └── 10_execution_plan.md / .html
 ```
+
+`standalone.html` is the recommended file to present or attach in Claude.ai, ChatGPT, and other hosted artifact surfaces. It does not require `localhost`, a terminal command, sibling HTML files, or manually constructed CDN URLs. `index.html` and the per-page files remain for Codex, Claude Code, and other local filesystem workflows.
 
 </details>
 

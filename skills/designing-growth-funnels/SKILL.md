@@ -38,7 +38,7 @@ Use these principles while synthesizing:
 6. Run live research for current-sensitive claims when host web, browser, MCP, analytics, CRM, or file tools are available. Use bundled collectors only for best-effort public web and competitor discovery; otherwise use host tools and record normalized source rows. If no live research path exists, the pack may still be ready to test when every recommendation is explicitly assumption-backed and launch blockers stay visible.
 7. Compile `runtime/insights.json` before rendering. Every recommendation must point to evidence or an explicit assumption.
 8. Render `final/` only after validation, even if some recommendations stay blocked.
-9. Finish the chat response with the clickable main HTML link first when a final exists; otherwise start with the clickable `user_inputs/` folder and `00_next_input.md`. Always include the next smallest useful input. Use `final_index_chat_link` from `render_final.py` when available. If building links manually, use Markdown with absolute local paths: `[Открыть финальный HTML](/absolute/path/final/index.html)`, `[Папка для данных](/absolute/path/user_inputs)`, `[Что заполнить дальше](/absolute/path/user_inputs/00_next_input.md)`. Do not use `file://`, a code block, or an `open ...` command as the primary way to open files.
+9. Finish the chat response with the single-file HTML first when a final exists; otherwise start with the clickable `user_inputs/` folder and `00_next_input.md`. Always include the next smallest useful input. Use `final_standalone_chat_link` from `render_final.py` when available, and include `final_index_chat_link` only as a local navigation fallback when useful. In Claude.ai, ChatGPT, or other hosted artifact surfaces, present or attach `final/standalone.html` as the actual artifact. Do not output manually constructed `claudeusercontent.com` or other CDN URLs, do not require `localhost`, and do not send non-technical users to child page links such as `05_funnel_blueprint.html` unless the files are in the same local directory. If building links manually, use Markdown with absolute local paths: `[Открыть единый HTML](/absolute/path/final/standalone.html)`, `[Открыть локальное оглавление](/absolute/path/final/index.html)`, `[Папка для данных](/absolute/path/user_inputs)`, `[Что заполнить дальше](/absolute/path/user_inputs/00_next_input.md)`. Do not use `file://`, a code block, or an `open ...` command as the primary way to open files.
 
 Run bundled scripts yourself when filesystem access exists:
 
@@ -57,11 +57,12 @@ python3 scripts/export_launch.py "<workspace-dir>" --json
 The workspace has four areas:
 
 - `runtime/`: machine state, source ledger, task state, gaps, and normalized evidence.
-- `final/`: user-facing Markdown and self-contained HTML only.
+- `final/`: user-facing Markdown, local multipage HTML, and one self-contained `standalone.html` for hosted artifact surfaces.
 - `user_inputs/`: editable Markdown templates for user context collection; safe to show and ask the user to fill.
 - `exports/`: optional machine-readable launch handoff JSON/CSV, generated only when explicitly requested.
 
 Do not put YAML, CSV, JSON, JSONL, traces, or separate CSS files in `final/`.
+Keep legacy `index.html` and per-page HTML files for local/Codex compatibility, but `standalone.html` must contain all report sections, inline CSS, internal `#section` navigation only, and no links to sibling `.html` files.
 Specialist/task traceability belongs in `runtime/orchestration_contract.json`; if exported, the machine-readable handoff belongs in `exports/orchestration_contract.*`, not `final/`.
 Do not mark launch exports ready unless `ready_for_launch == true`, row-level `ready == true`, and row-level `launch_blocked_reason` is empty. Assumption-backed rows may be `ready_to_test`, but must keep `claim_ids`, `source_ids`, `assumption_ids`, `blocked_reason`, and `launch_blocked_reason` visible in exports.
 Copy, action, route, proof-placement, and qualification variants belong in `runtime/insights.json` as `variant_bundles`; if exported, their machine-readable handoff belongs in `exports/variant_bundles.*`, not `final/`.

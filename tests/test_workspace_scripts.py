@@ -78,6 +78,7 @@ def assert_final_pack(workspace: Path) -> None:
     final_dir = workspace / "final"
     expected = [
         "index.html",
+        "standalone.html",
         "00_index.md",
         "00_index.html",
         "01_status_next_steps.md",
@@ -123,6 +124,17 @@ def assert_final_pack(workspace: Path) -> None:
             raise AssertionError(f"missing inline style: {html_path}")
         if "stylesheet" in html.lower():
             raise AssertionError(f"external stylesheet reference leaked: {html_path}")
+        if html_path.name == "standalone.html":
+            if 'href="#00_index"' not in html:
+                raise AssertionError(f"standalone HTML is missing internal start anchor: {html_path}")
+            sibling_links = [
+                f'href="{filename}"'
+                for filename in expected
+                if filename.endswith(".html")
+            ]
+            leaked = [link for link in sibling_links if link in html]
+            if leaked:
+                raise AssertionError(f"standalone HTML links to sibling pages: {leaked}")
 
 
 def assert_launch_exports(workspace: Path) -> None:
@@ -565,8 +577,11 @@ class WorkspaceScriptsTest(unittest.TestCase):
             self.assertTrue(result["recommendations_ready"])
             self.assertTrue(result["rendered"])
             final_index_path = workspace.resolve() / "final" / "index.html"
+            final_standalone_path = workspace.resolve() / "final" / "standalone.html"
             self.assertEqual(result["final_index_path"], str(final_index_path))
             self.assertEqual(result["final_index_chat_link"], f"[Open final HTML]({final_index_path})")
+            self.assertEqual(result["final_standalone_path"], str(final_standalone_path))
+            self.assertEqual(result["final_standalone_chat_link"], f"[Open standalone HTML]({final_standalone_path})")
             assert_final_pack(workspace)
             insights = json.loads((workspace / "runtime" / "insights.json").read_text(encoding="utf-8"))
             self.assertIn("decision_summary", insights)
@@ -2188,7 +2203,9 @@ class WorkspaceScriptsTest(unittest.TestCase):
             self.assertIn("Контрольный риск", tracking)
             self.assertIn("Пайплайн запуска", html_index)
             final_index_path = workspace.resolve() / "final" / "index.html"
+            final_standalone_path = workspace.resolve() / "final" / "standalone.html"
             self.assertEqual(result["final_index_chat_link"], f"[Открыть финальный HTML]({final_index_path})")
+            self.assertEqual(result["final_standalone_chat_link"], f"[Открыть единый HTML]({final_standalone_path})")
 
             combined = "\n".join([index, execution, blueprint, tracking])
             self.assertNotIn("CTA", combined)

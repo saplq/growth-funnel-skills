@@ -14,7 +14,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 
-VERSION = "2.4.0"
+VERSION = "2.5.0"
 
 READY_MIN_COMPETITORS = 3
 
@@ -5333,6 +5333,9 @@ def orchestration_existing_final_refs(workspace: Path) -> list[str]:
     index = fd / "index.html"
     if index.exists() and not index.is_symlink():
         refs.append("final/index.html")
+    standalone = fd / "standalone.html"
+    if standalone.exists() and not standalone.is_symlink():
+        refs.append("final/standalone.html")
     for slug, _ in FINAL_PAGES:
         for suffix in [".md", ".html"]:
             path = fd / f"{slug}{suffix}"

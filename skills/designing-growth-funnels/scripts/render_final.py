@@ -1465,6 +1465,107 @@ def write_index_html(workspace: Path, data: dict[str, Any], nav: list[tuple[str,
     write_text_file(final_dir(workspace) / "index.html", html)
 
 
+def write_standalone_html(
+    workspace: Path,
+    data: dict[str, Any],
+    nav: list[tuple[str, str]],
+    page_markdowns: dict[str, str],
+) -> None:
+    ru = is_russian(data)
+    language = output_language(data)
+    lang = "ru" if ru else "en"
+    title = "Единый отчет по воронке" if ru else "Standalone Growth Funnel Report"
+    intro = (
+        "Один HTML-файл со всеми разделами. Он не требует localhost, дополнительных файлов или ссылок на соседние страницы."
+        if ru
+        else "One HTML file with every section. It does not require localhost, extra files, or links to sibling pages."
+    )
+    nav_html = "\n".join(
+        f'<a class="nav-link" href="#{escape(slug)}"><span>{number + 1:02d}</span>{escape(page_title)}</a>'
+        for number, (slug, page_title) in enumerate(nav)
+    )
+    sections = "\n".join(
+        f'<section id="{escape(slug)}" class="report-section"><div class="section-number">{number + 1:02d}</div>{markdown_to_html(page_markdowns.get(slug, ""))}</section>'
+        for number, (slug, _) in enumerate(nav)
+    )
+    pipeline_title = "Пайплайн запуска" if ru else "Launch Pipeline"
+    pipeline = markdown_to_html(f"## {pipeline_title}\n\n{pipeline_table(data, ru)}")
+    html = f"""<!doctype html>
+<html lang="{lang}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{escape(title)}</title>
+  <style>
+    :root {{ color-scheme: light; --ink: #17202a; --muted: #627386; --line: #d9e0e7; --accent: #0f766e; --bg: #f7f9fb; --warn: #b45309; --bad: #b42318; --good: #047857; }}
+    * {{ box-sizing: border-box; }}
+    html {{ scroll-behavior: smooth; }}
+    body {{ margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--ink); background: var(--bg); }}
+    .layout {{ display: grid; grid-template-columns: minmax(220px, 300px) minmax(0, 1fr); min-height: 100vh; }}
+    nav {{ border-right: 1px solid var(--line); background: #fff; padding: 24px 18px; position: sticky; top: 0; height: 100vh; overflow: auto; }}
+    .brand {{ font-size: 13px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 16px; }}
+    .nav-link {{ display: flex; gap: 10px; align-items: baseline; padding: 9px 10px; margin: 2px 0; border-radius: 6px; color: var(--ink); text-decoration: none; font-size: 14px; }}
+    .nav-link span {{ color: var(--accent); font-weight: 700; }}
+    .nav-link:hover {{ background: #e7f5f2; color: #0f5f59; }}
+    main {{ max-width: 1120px; padding: 42px 42px 88px; }}
+    .hero {{ margin-bottom: 28px; }}
+    .hero h1 {{ font-size: 40px; line-height: 1.1; margin: 0 0 12px; }}
+    .hero p {{ color: var(--muted); font-size: 18px; line-height: 1.55; max-width: 780px; }}
+    .jump-start {{ display: inline-block; margin-top: 10px; color: #fff; background: var(--accent); padding: 11px 15px; border-radius: 6px; text-decoration: none; }}
+    .report-section {{ position: relative; margin-top: 28px; padding: 30px 0 12px; border-top: 1px solid var(--line); scroll-margin-top: 24px; }}
+    .section-number {{ display: inline-block; margin-bottom: 14px; padding: 4px 8px; border-radius: 999px; background: #e7f5f2; color: #0f5f59; font-size: 12px; font-weight: 700; }}
+    h1 {{ font-size: 34px; line-height: 1.15; margin: 0 0 24px; }}
+    h2 {{ font-size: 22px; margin-top: 32px; padding-top: 12px; border-top: 1px solid var(--line); }}
+    h3 {{ font-size: 17px; margin-top: 24px; }}
+    p, li {{ font-size: 16px; line-height: 1.62; }}
+    blockquote {{ margin: 0 0 24px; padding: 18px 20px; border: 1px solid #b7d8d2; border-left: 5px solid var(--accent); border-radius: 8px; background: #f0fbf8; }}
+    blockquote p {{ margin: 0; font-size: 17px; color: #103f3a; }}
+    code {{ background: #eef2f5; padding: 2px 5px; border-radius: 4px; }}
+    table {{ border-collapse: separate; border-spacing: 0; width: 100%; margin: 16px 0 28px; background: #fff; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }}
+    th, td {{ border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }}
+    th {{ background: #edf3f5; font-size: 13px; text-transform: uppercase; color: #425466; }}
+    td.risk-high, td.risk-высокий {{ color: var(--bad); font-weight: 700; background: #fff1f0; }}
+    td.risk-medium, td.risk-средний {{ color: var(--warn); font-weight: 700; background: #fff8eb; }}
+    td.risk-low, td.risk-низкий {{ color: var(--good); font-weight: 700; background: #ecfdf3; }}
+    td.confidence-high, td.confidence-высокая {{ color: var(--good); font-weight: 700; }}
+    td.confidence-medium, td.confidence-средняя {{ color: var(--warn); font-weight: 700; }}
+    td.confidence-low, td.confidence-низкая {{ color: var(--bad); font-weight: 700; }}
+    .funnel-visual {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 16px 0 28px; }}
+    .funnel-node {{ position: relative; min-height: 150px; border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 16px; }}
+    .funnel-node::after {{ content: "→"; position: absolute; right: -13px; top: 50%; transform: translateY(-50%); color: var(--muted); font-weight: 700; }}
+    .funnel-node:last-child::after {{ content: ""; }}
+    .funnel-node p {{ margin: 10px 0; font-size: 14px; line-height: 1.45; }}
+    .funnel-node small {{ display: block; color: var(--muted); line-height: 1.4; }}
+    .funnel-node.assumption-backed {{ background: #fffbeb; border-color: #f7c948; }}
+    .funnel-node.blocked {{ background: #fff1f0; border-color: #ffb4ad; }}
+    .funnel-badge {{ display: inline-block; margin-bottom: 8px; padding: 3px 7px; border-radius: 999px; background: #eef2f5; color: #425466; font-size: 12px; font-weight: 700; }}
+    .assumption-backed .funnel-badge {{ background: #fef3c7; color: #92400e; }}
+    .blocked .funnel-badge {{ background: #fee2e2; color: #991b1b; }}
+    @media (max-width: 760px) {{ .layout {{ display: block; }} nav {{ position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }} main {{ padding: 28px 20px 56px; }} .hero h1 {{ font-size: 32px; }} }}
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <nav>
+      <div class="brand">{escape(ui_text(language, "brand"))}</div>
+      {nav_html}
+    </nav>
+    <main>
+      <header class="hero">
+        <h1>{escape(title)}</h1>
+        <p>{escape(intro)}</p>
+        <a class="jump-start" href="#00_index">{escape(ui_text(language, "start"))}</a>
+      </header>
+      {pipeline}
+      {sections}
+    </main>
+  </div>
+</body>
+</html>
+"""
+    write_text_file(final_dir(workspace) / "standalone.html", html)
+
+
 def render_pages(workspace: Path) -> dict[str, Any]:
     validate_and_write(workspace)
     data = load_workspace(workspace)
@@ -1483,19 +1584,26 @@ def render_pages(workspace: Path) -> dict[str, Any]:
         "09_risks_and_gaps": render_gaps,
         "10_execution_plan": render_execution,
     }
+    page_markdowns: dict[str, str] = {}
     for slug, title in nav:
         markdown = page_builders[slug](data)
+        page_markdowns[slug] = markdown
         write_final_page(workspace, slug, title, markdown, nav, output_language(data))
     write_index_html(workspace, data, nav)
+    write_standalone_html(workspace, data, nav, page_markdowns)
     summary = validate_and_write(workspace)
     leaks = final_leakage(workspace)
     final_index = final_dir(workspace) / "index.html"
+    final_standalone = final_dir(workspace) / "standalone.html"
     link_label = "Открыть финальный HTML" if is_russian(data) else "Open final HTML"
+    standalone_label = "Открыть единый HTML" if is_russian(data) else "Open standalone HTML"
     summary["rendered"] = True
     summary["recommendations_ready"] = summary.get("phase") == "ready"
     summary["ready_to_test"] = summary.get("phase") == "ready"
     summary["final_index_path"] = str(final_index)
     summary["final_index_chat_link"] = markdown_file_link(final_index, link_label)
+    summary["final_standalone_path"] = str(final_standalone)
+    summary["final_standalone_chat_link"] = markdown_file_link(final_standalone, standalone_label)
     summary["final_leakage"] = leaks
     return summary
 
