@@ -34,9 +34,12 @@ Each screen should define:
 - proof needed;
 - blocked assumptions.
 - support evidence or assumption id.
+- evidence mode: source-backed or assumption-backed.
 
 ## Recommendation Rule
 
 Keep each stage tied to one target belief, one CTA, one primary metric, one guardrail, and one support reference. If the minimum gate is missing, mark recommendations blocked instead of filling gaps with generic copy.
 
-Variant bundles should stay compact: 2-3 copy, action, route, proof-placement, or qualification changes with hypothesis, target segment, measurement event, proof requirement, and the same claim/source/assumption coverage as the parent recommendation.
+Variant bundles should stay compact: 2-3 copy, action, route, proof-placement, or qualification changes with hypothesis, target segment, measurement event, proof requirement, and the same claim/source/assumption coverage as the parent recommendation. Assumption-backed variants can be ready to test, but their launch exports must stay blocked.
+
+Render a visual funnel map from the same screen specs. Highlight assumption-backed steps so the user sees what can be tested now and what still blocks launch handoff.

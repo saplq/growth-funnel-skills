@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/saplq/growth-funnel-skills/actions/workflows/ci.yml/badge.svg)](https://github.com/saplq/growth-funnel-skills/actions/workflows/ci.yml)
 
-`designing-growth-funnels` is an Agent Skill that helps an AI agent build a practical, source-aware growth funnel package when enough business context, evidence, and measurable constraints are available.
+`designing-growth-funnels` is an Agent Skill that helps an AI agent build a practical, source-aware or assumption-backed growth funnel package when enough business context and measurable constraints are available.
 
 It is designed for Codex, ChatGPT Skills, Claude Code, Claude.ai, and other agent hosts that support `SKILL.md`.
 
@@ -12,7 +12,7 @@ Repository: `saplq/growth-funnel-skills`
 
 Repeatable growth does not come from "creative marketing genius." It comes from a system that rejects weak cases early, turns vague goals into measurable KPI contracts, gives users fast first value, instruments each step, and improves through experiments.
 
-This skill does **not** promise 90%+ success for every product, audience, and traffic source. It helps an agent produce a clearer, more testable, more evidence-aware funnel package.
+This skill does **not** promise 90%+ success for every product, audience, and traffic source. It helps an agent produce a clearer, more testable funnel package that separates evidence from explicit assumptions.
 
 ```text
 Fit Gate -> KPI Contract -> Journey Map -> First Value -> Instrumentation -> Experiment Loop -> Retention Loop -> Postmortem Library
@@ -228,9 +228,9 @@ The correct expectation is: **the skill makes the work structured, measurable, s
 | Tier | Meaning |
 | --- | --- |
 | **Blocked** | Required business context is missing. |
-| **Draft** | Core context exists, but sources, competitor evidence, proof, or metrics are limited. |
-| **Ready to test** | Gate is complete, current sources and competitor evidence are recorded, KPI and tracking are defined, and the first experiment card is clear. |
-| **Ready to execute carefully** | Owner, timeline, constraints, data, contradictions, and risks have been reviewed. |
+| **Draft** | Core context exists, but a high-risk or contradictory blocker prevents a useful test plan. |
+| **Ready to test** | Gate is complete, recommendations are covered by sources or explicit assumptions, KPI and tracking are defined, and the first experiment card is clear. |
+| **Ready for launch handoff** | Evidence gaps, weak/missing proof, high-risk approval, contradictions, and row-level launch blockers are resolved. |
 
 ## Methodology Basis
 
@@ -242,13 +242,13 @@ It combines:
 - audience segmentation and jobs-to-be-done thinking;
 - KPI contracts and event-based measurement;
 - funnel step design around user doubts, proof, and first value;
-- source-aware competitor and current-practice research, with readiness blocked when evidence is weak or missing;
+- source-aware competitor and current-practice research, with launch readiness blocked when evidence is weak or missing;
 - assumption tracking, experiment planning, retention loops, and postmortems;
 - clean final report generation from a separate runtime workspace.
 
 Scientific references to predictive cognition, anticipation, uncertainty, and reward are used only as design analogies for sequencing attention, expectation, surprise, and resolution. They are not used as proof that a marketing funnel will work.
 
-Freshness rule: the repository does not hardcode "latest market data" because that would become stale immediately. The skill expects the agent to gather fresh project-specific sources during each run when tools are available, and blocks readiness when current sources or retrieval dates are missing.
+Freshness rule: the repository does not hardcode "latest market data" because that would become stale immediately. The skill expects the agent to gather fresh project-specific sources during each run when tools are available. Missing current sources remain visible as launch blockers; cold-start plans can still be ready to test when explicitly assumption-backed.
 
 <details>
 <summary><strong>Workspace and final pack</strong></summary>
@@ -348,7 +348,7 @@ python3 skills/designing-growth-funnels/scripts/export_launch.py \
   --json
 ```
 
-The export command writes JSON and CSV files for `action_plan`, `event_schema`, `content_brief`, `crm_handoff`, `funnel_diff`, `variant_bundles`, `reviewer_approval`, `orchestration_contract`, and `experiment_card` into `exports/`. Draft or research-phase exports stay marked blocked and keep `claim_ids`, `source_ids`, `assumption_ids`, and `blocked_reason` visible.
+The export command writes JSON and CSV files for `action_plan`, `event_schema`, `content_brief`, `crm_handoff`, `funnel_diff`, `variant_bundles`, `reviewer_approval`, `orchestration_contract`, and `experiment_card` into `exports/`. Assumption-backed exports can be `ready_to_test`, but stay launch-blocked with `claim_ids`, `source_ids`, `assumption_ids`, `blocked_reason`, and `launch_blocked_reason` visible.
 
 </details>
 

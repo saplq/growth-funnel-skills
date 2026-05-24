@@ -48,9 +48,9 @@ For pricing, changelog, and current-practice facts, missing `retrieved_at` is a 
 - Use high/medium-weight sources for recommendations; low-weight sources are not support.
 - Keep source summaries short and tied to where they are used.
 - If evidence conflicts, record the conflict in `runtime/gaps.json`.
-- Do not invent missing proof, customer claims, benchmarks, or private metrics.
+- Do not invent missing proof, customer claims, or private metrics. Default cold-start benchmarks are allowed only as `benchmark_assumption`, not evidence.
 - Treat proof mechanics as format guidance only. A recommended proof format is not evidence unless a source, artifact, or explicit assumption backs the claim.
-- Human reviewer approval can clear governance review for high-risk source-backed claims, but it does not create evidence and must not unblock weak, stale, missing, or low-weight proof.
+- Human reviewer approval can clear governance review for high-risk source-backed claims, but it does not create evidence and must not unblock weak, stale, missing, or low-weight proof for launch handoff.
 
 ## Live Collection
 

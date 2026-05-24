@@ -4,12 +4,13 @@ Use this when splitting work across specialists or recording specialist outputs.
 
 ## Roles
 
-- `intake`: normalize user context and missing fields.
-- `planner`: create topics and bounded tasks.
-- `research`: gather current sources and practice patterns.
-- `competitor`: gather competitor observations.
+Prefer three compact roles:
+
+- `intake_research`: normalize user context, missing fields, source evidence, competitor observations, metrics, and constraints.
 - `synthesis`: draft recommendations from normalized state and compile decision-grade insights into `runtime/insights.json`.
-- `compiler_reviewer`: render and check the final pack.
+- `review_render`: review readiness, render the final pack, and check leakage.
+
+Compatibility aliases remain valid when older contracts already exist: `intake`, `planner`, `research`, `competitor`, and `compiler_reviewer`.
 
 ## Result Contract
 
@@ -17,8 +18,8 @@ Specialists return one JSON object:
 
 ```json
 {
-  "role": "research",
-  "specialist": "research",
+  "role": "intake_research",
+  "specialist": "intake_research",
   "topic_id": "research_evidence",
   "task_id": "research-1",
   "objective": "Verify current-practice evidence for the main recommendation.",
@@ -32,7 +33,7 @@ Specialists return one JSON object:
   "claim_ids": [],
   "source_ids": [],
   "assumption_ids": ["A1"],
-  "blocked_reason": "Need two more independent sources before ready state.",
+  "blocked_reason": "Need two more independent sources before launch handoff is ready.",
   "status": "blocked",
   "freshness_date": "2026-05-15",
   "confidence": "medium",
@@ -52,7 +53,7 @@ Validation writes `runtime/orchestration_contract.json`. Each task row includes 
 ## Boundaries
 
 - Specialists write to runtime artifacts only through scripts or clear normalized notes.
-- Only the compiler writes `final/`.
+- Only `review_render` writes `final/`.
 - Subagents should return summaries and source rows, not raw browsing transcripts.
 - Raw orchestration contracts stay in `runtime/` or `exports/`; `final/` may show only readable summaries.
 - Sensitive external writes require user approval.
@@ -63,5 +64,5 @@ Before rendering, the synthesis role must ensure:
 
 - each segment, screen, and experiment has `support`;
 - `support` points to an evidence ref or explicit assumption;
-- blocked or weak evidence is visible to the user;
+- blocked or weak evidence is visible to the user as a launch blocker, not silently converted into proof;
 - the first action is concrete enough for a marketer to execute.

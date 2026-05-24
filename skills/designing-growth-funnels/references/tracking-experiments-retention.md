@@ -29,7 +29,7 @@ An experiment card needs:
 - decision rule;
 - data-quality checks.
 
-Do not interpret results if SRM, exposure logging, or event loss is unresolved.
+Do not interpret results if SRM, exposure logging, or event loss is unresolved. For low-traffic funnels, keep the full fields in runtime/export, but render a compact sequential-learning plan in `final/` instead of overemphasizing statistical lift.
 
 ## Retention Loop
 

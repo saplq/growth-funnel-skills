@@ -622,17 +622,19 @@ def default_topics(language: str = "English") -> list[dict[str, str]]:
 
 def default_task_objectives() -> dict[str, str]:
     return {
-        "intake": "Normalize user context, missing fields, proof assets, metrics, and constraints.",
-        "planner": "Keep topic/task scope bounded and route unresolved work to the right specialist.",
-        "research": "Gather source-backed current-practice evidence and identify evidence gaps.",
-        "competitor": "Gather sourced competitor observations for pricing, CTA, onboarding, proof, and first value.",
+        "intake_research": "Normalize user context, missing fields, source evidence, competitor observations, metrics, and constraints.",
         "synthesis": "Compile decision-grade insights with claim/source/assumption coverage.",
-        "compiler_reviewer": "Render the user-facing final pack and verify that raw machine-readable files stay outside final/.",
+        "review_render": "Review readiness, render the user-facing final pack, and verify that raw machine-readable files stay outside final/.",
+        "intake": "Alias for intake_research: normalize user context and missing fields.",
+        "planner": "Alias for intake_research: keep topic/task scope bounded.",
+        "research": "Alias for intake_research: gather source-backed current-practice evidence.",
+        "competitor": "Alias for intake_research: gather sourced competitor observations.",
+        "compiler_reviewer": "Alias for review_render: render and check the final pack.",
     }
 
 
 def default_tasks() -> list[dict[str, str]]:
-    roles = ["intake", "planner", "research", "competitor", "synthesis", "compiler_reviewer"]
+    roles = ["intake_research", "synthesis", "review_render"]
     objectives = default_task_objectives()
     now = utc_now()
     return [
@@ -661,9 +663,12 @@ def default_state(name: str, language: str) -> dict[str, Any]:
         "phase": "intake",
         "minimum_gate_satisfied": False,
         "scores": {"completeness": 0, "qualification": 0, "research_readiness": 0},
+        "ready_to_test": False,
+        "ready_for_launch": False,
         "artifact_status": {},
         "critical_missing_fields": [],
         "evidence_gaps": [],
+        "launch_blockers": [],
         "contradictions": [],
         "warnings": [],
         "next_best_input": [],
@@ -767,6 +772,7 @@ def default_gaps(language: str = "English") -> dict[str, Any]:
     return {
         "missing_fields": [],
         "evidence_gaps": [],
+        "launch_blockers": [],
         "auto_collect": [],
         "ask_user": [],
         "blocked_recommendations": [],
@@ -822,7 +828,83 @@ def source_domain(url: str) -> str:
 
 def recommendations_are_ready(data: dict[str, Any], research_score: int, gaps: list[str], conflicts: list[str]) -> bool:
     gate = minimum_gate_satisfied(data.get("intake", {}))
-    return gate and research_score >= 60 and not gaps and not conflicts
+    return gate and not ready_to_test_blocking_gaps(data, gaps) and not conflicts
+
+
+def usable_ready_source(source: dict[str, Any]) -> bool:
+    if is_stale_source(source):
+        return False
+    if str(source.get("evidence_weight") or "").strip().lower() == "low":
+        return False
+    if str(source.get("confidence") or "").strip().lower() == "low":
+        return False
+    return source_quality_value(source) >= 0.55
+
+
+def has_usable_ready_source(data: dict[str, Any]) -> bool:
+    sources = data.get("sources") if isinstance(data.get("sources"), list) else []
+    return any(usable_ready_source(source) for source in sources if isinstance(source, dict))
+
+
+def ready_to_test_blocking_gaps(data: dict[str, Any], gaps: list[str]) -> list[str]:
+    """Return only gaps that should block an assumption-backed test plan."""
+    usable_sources = has_usable_ready_source(data)
+    nonblocking_fragments = [
+        "source registry has no current sources",
+        "нет свежих источников в реестре данных",
+        f"competitor map has fewer than {READY_MIN_COMPETITORS} competitors",
+        f"карта конкурентов содержит меньше {READY_MIN_COMPETITORS} конкурентов",
+        "semantic evidence: no usable sources",
+        "качество данных: нет пригодных источников",
+        "semantic evidence: no source-backed claims",
+        "качество данных: нет утверждений с источниками",
+        "semantic evidence: recommendations rely on assumptions or uncovered claims",
+        "качество данных: рекомендации опираются на допущения или непокрытые утверждения",
+        "semantic evidence: at least one recommendation has weak claim coverage",
+        "качество данных: минимум одна рекомендация слабо покрыта утверждениями",
+        "semantic evidence: readiness score",
+        "качество данных: score",
+    ]
+    blocking: list[str] = []
+    for gap in gaps:
+        text = str(gap or "").strip()
+        lowered = text.lower()
+        if not text:
+            continue
+        if "low-weight source cannot support recommendations" in lowered and usable_sources:
+            continue
+        if "слабый источник нельзя использовать как доказательство" in lowered and usable_sources:
+            continue
+        if "semantic evidence: low-weight sources cannot carry ready state" in lowered and usable_sources:
+            continue
+        if "качество данных: слабые источники не могут переводить пакет в ready" in lowered and usable_sources:
+            continue
+        if any(fragment in lowered for fragment in nonblocking_fragments):
+            continue
+        blocking.append(text)
+    return dedupe(blocking)
+
+
+def launch_blockers(summary: dict[str, Any]) -> list[str]:
+    reasons: list[str] = []
+    explicit = list_value(summary.get("launch_blockers"))
+    reasons.extend(explicit)
+    missing = list_value(summary.get("critical_missing_fields"))
+    if missing:
+        reasons.append("missing_fields: " + ", ".join(missing))
+    gaps = list_value(summary.get("evidence_gaps"))
+    if gaps:
+        reasons.append("evidence_gaps: " + "; ".join(gaps[:6]))
+    conflicts = list_value(summary.get("contradictions"))
+    if conflicts:
+        reasons.append("contradictions: " + "; ".join(conflicts))
+    if summary.get("phase") != "ready" or not summary.get("recommendations_ready"):
+        reasons.append(f"phase is {summary.get('phase') or 'unknown'}; recommendations are not ready to test")
+    return dedupe(reasons)
+
+
+def summary_ready_for_launch(summary: dict[str, Any]) -> bool:
+    return bool(summary.get("phase") == "ready" and summary.get("recommendations_ready") and not launch_blockers(summary))
 
 
 def evidence_gaps(data: dict[str, Any]) -> list[str]:
@@ -2018,6 +2100,7 @@ def source_ids_for_claim(sources: list[dict[str, Any]], support_id_set: set[str]
         source_id(source)
         for source in sources
         if source_id(source) in support_id_set and source_claim_group(source) == claim_type
+        and usable_ready_source(source)
     ]
     return dedupe(ids)
 
@@ -2455,6 +2538,12 @@ def promise_proof_blocks_ready(status: str) -> bool:
     return status in {"no_proof", "weak_proof", "risky_unverified"}
 
 
+def promise_proof_blocks_ready_to_test(row: dict[str, Any]) -> bool:
+    status = str(row.get("evidence_status") or "").strip()
+    risk_level = str(row.get("risk_level") or "").strip().lower()
+    return status == "risky_unverified" or (risk_level == "high" and status != "source_backed")
+
+
 def promise_proof_blockers(insights: dict[str, Any] | None, ru: bool) -> list[str]:
     if not isinstance(insights, dict):
         return []
@@ -2465,11 +2554,10 @@ def promise_proof_blockers(insights: dict[str, Any] | None, ru: bool) -> list[st
     for row in model:
         if not isinstance(row, dict):
             continue
-        status = str(row.get("evidence_status") or "")
-        if not promise_proof_blocks_ready(status):
+        if not promise_proof_blocks_ready_to_test(row):
             continue
         promise_id = str(row.get("promise_id") or "promise")
-        reason = str(row.get("blocked_reason") or status)
+        reason = str(row.get("blocked_reason") or row.get("evidence_status") or "")
         blockers.append(
             f"качество данных: обещание {promise_id} не готово к запуску: {reason}"
             if ru
@@ -2494,28 +2582,39 @@ def apply_promise_proof_to_recommendations(
     rows: list[dict[str, Any]],
     promise_proof_model: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    blockers = [
+    assumption_rows = [
         row
         for row in promise_proof_model
         if isinstance(row, dict) and promise_proof_blocks_ready(str(row.get("evidence_status") or ""))
     ]
-    if not blockers:
+    if not assumption_rows:
         return rows
     assumption_ids = dedupe(
         [
             assumption_id
-            for row in blockers
+            for row in assumption_rows
             for assumption_id in list_value(row.get("assumption_ids"))
         ]
     )
-    blocked_reason = "; ".join(
+    hard_blocked_reason = "; ".join(
         str(row.get("blocked_reason") or "").strip()
-        for row in blockers
-        if str(row.get("blocked_reason") or "").strip()
+        for row in assumption_rows
+        if promise_proof_blocks_ready_to_test(row) and str(row.get("blocked_reason") or "").strip()
     )
+    notices = [
+        str(row.get("fallback") or row.get("blocked_reason") or "").strip()
+        for row in assumption_rows
+        if not promise_proof_blocks_ready_to_test(row)
+    ]
+    assumption_notice = "; ".join(dedupe([notice for notice in notices if notice]))
     for row in rows:
         row["assumption_ids"] = dedupe(list_value(row.get("assumption_ids")) + assumption_ids)
-        row["blocked_reason"] = append_blocked_reason(row.get("blocked_reason"), blocked_reason)
+        if assumption_ids and not list_value(row.get("source_ids")):
+            row["evidence_mode"] = "assumption_backed"
+        if assumption_notice:
+            row["assumption_notice"] = assumption_notice
+        if hard_blocked_reason:
+            row["blocked_reason"] = append_blocked_reason(row.get("blocked_reason"), hard_blocked_reason)
     return rows
 
 
@@ -2728,7 +2827,8 @@ def add_recommendation_contract(
         resolved_source_ids = list_value(enriched.get("source_ids")) or selected_source_ids or ([] if selected_claims else source_ids)
         has_source_support = bool(resolved_source_ids)
         resolved_assumption_ids = list_value(enriched.get("assumption_ids")) or ([] if has_source_support else assumption_ids)
-        blocked_reason = "" if phase == "ready" and has_source_support else ("нужно подтвердить источники перед запуском" if ru else "needs evidence before launch")
+        has_assumption_support = bool(resolved_assumption_ids)
+        blocked_reason = "" if phase == "ready" and (has_source_support or has_assumption_support) else ("нужно подтвердить источники перед запуском" if ru else "needs evidence before launch")
         enriched.update(
             {
                 "id": recommendation_id,
@@ -2743,6 +2843,8 @@ def add_recommendation_contract(
                 "measurement_event": enriched.get("measurement_event") or metric,
             }
         )
+        if not has_source_support and has_assumption_support:
+            enriched.setdefault("evidence_mode", "assumption_backed")
         result.append(enriched)
     return result
 
@@ -3058,23 +3160,24 @@ def compile_insights(data: dict[str, Any], phase: str) -> dict[str, Any]:
     target_kpi = dash_text(intake.get("target_kpi"), ru)
     channel = dash_text(intake.get("primary_channel"), ru)
     evidence_refs = build_evidence_refs(sources)
-    assumptions = build_assumptions(data, skeleton, ru)
+    channel_synthesis = build_channel_synthesis(intake, ru)
+    niche_profile = build_niche_profile(intake, ru)
+    benchmark_assumptions = build_benchmark_assumptions(data, niche_profile, ru)
+    assumptions = append_benchmark_assumptions(build_assumptions(data, skeleton, ru), benchmark_assumptions)
     support = first_support_ref(evidence_refs, assumptions)
     source_ids = select_support_source_ids(sources, evidence_refs, competitors, 3)
     support = source_ids[0] if source_ids else support
     assumption_ids = first_ids(assumptions, "id", 3)
     competitor_synthesis = build_competitor_synthesis(competitors, sources, source_ids, ru)
-    channel_synthesis = build_channel_synthesis(intake, ru)
-    niche_profile = build_niche_profile(intake, ru)
     evidence_claims = build_evidence_claims(sources, assumptions, source_ids, ru)
     promise_proof_model = build_promise_proof_model(intake, sources, evidence_claims, assumptions, ru, niche_profile, channel_synthesis)
     source_backed_claims = [claim for claim in evidence_claims if list_value(claim.get("source_ids"))]
     claim_ids = first_ids(source_backed_claims if source_ids else evidence_claims, "claim_id", 2)
     confidence = "high" if phase == "ready" else "medium" if gate else "low"
     status = (
-        ("готово к внедрению" if phase == "ready" else "черновик: нужен ресерч" if gate else "заблокировано: нужен входной контекст")
+        ("готово к тесту с явными допущениями" if phase == "ready" else "черновик: нужен ресерч" if gate else "заблокировано: нужен входной контекст")
         if ru
-        else ("ready to execute" if phase == "ready" else "draft: research needed" if gate else "blocked: intake needed")
+        else ("ready to test with explicit assumptions" if phase == "ready" else "draft: research needed" if gate else "blocked: intake needed")
     )
 
     decision_summary = {
@@ -3160,6 +3263,7 @@ def compile_insights(data: dict[str, Any], phase: str) -> dict[str, Any]:
         current_funnel_diff,
         ru,
     )
+    funnel_visual = build_funnel_visual(screens, channel_synthesis, current_funnel_diff, ru)
 
     return {
         "version": VERSION,
@@ -3176,7 +3280,9 @@ def compile_insights(data: dict[str, Any], phase: str) -> dict[str, Any]:
         "channel_synthesis": channel_synthesis,
         "niche_profile": niche_profile,
         "current_funnel_diff": current_funnel_diff,
+        "funnel_visual": funnel_visual,
         "variant_bundles": variant_bundles,
+        "benchmark_assumptions": benchmark_assumptions,
         "assumptions": assumptions,
         "confidence": confidence,
         "competitor_count": len(competitors),
@@ -3216,6 +3322,8 @@ def build_assumptions(data: dict[str, Any], skeleton: str, ru: bool = False) -> 
         assumptions.append({"id": "A2", "statement": "Конкурентный паттерн предварительный, пока не записаны 3 конкурента." if ru else "Competitive pattern is provisional until 3 competitors are recorded.", "used_in": "competitive_patterns"})
     if not proof_assets or truthy(intake.get("explicit_no_proof_yet")):
         assumptions.append({"id": "A3", "statement": "Доказательства нужно подтвердить до обещаний рядом с основным призывом к действию." if ru else "Proof must be validated before claims are used near the primary CTA.", "used_in": "screen_playbook"})
+    elif proof_assets:
+        assumptions.append({"id": "A3", "statement": "Предоставленные proof assets нужно проверить по силе, свежести и соответствию обещанию перед launch handoff." if ru else "Provided proof assets need strength, freshness, and promise-fit validation before launch handoff.", "used_in": "promise_proof"})
     if not present(intake.get("time_to_first_value_minutes")):
         assumptions.append({"id": "A4", "statement": (f"Путь «{skeleton_label(skeleton, ru)}» предполагает, что время до первой ценности еще нужно подтвердить." if ru else f"Skeleton `{skeleton}` assumes first value timing still needs validation."), "used_in": "funnel_map"})
     if promise_risk_level(" ".join([str(intake.get("offer") or ""), str(intake.get("target_kpi") or "")])) == "high":
@@ -3225,6 +3333,106 @@ def build_assumptions(data: dict[str, Any], skeleton: str, ru: bool = False) -> 
     if not assumptions:
         assumptions.append({"id": "A1", "statement": "Текст экранов все еще нужно проверить на языке реальных клиентов перед запуском." if ru else "Screen copy still needs validation against customer language before launch.", "used_in": "screen_playbook"})
     return assumptions
+
+
+def cold_start_benchmark_for(niche_profile: dict[str, Any] | None, ru: bool) -> dict[str, str]:
+    profile_key = str(niche_profile.get("profile_key") or "") if isinstance(niche_profile, dict) else ""
+    if ru:
+        values = {
+            "saas": {
+                "metric": "signup_to_first_value",
+                "range": "2-5% как стартовый ориентир для холодного планирования",
+                "statement": "Для SaaS без своих метрик использовать 2-5% signup-to-first-value как planning prior, а не как факт рынка.",
+            },
+            "education": {
+                "metric": "webinar_or_bot_to_qualified_call",
+                "range": "5-15% как стартовый ориентир для квалифицированного следующего шага",
+                "statement": "Для education/webinar path без своих метрик использовать 5-15% до квалифицированного следующего шага как planning prior.",
+            },
+            "real_estate": {
+                "metric": "qualified_consultation_show",
+                "range": "10-25% как стартовый ориентир для high-ticket qualification",
+                "statement": "Для high-ticket real estate без своих метрик использовать 10-25% show rate после квалификации как planning prior.",
+            },
+            "marketplace": {
+                "metric": "request_to_matched_next_step",
+                "range": "5-15% как стартовый ориентир для matched next step",
+                "statement": "Для marketplace без своих метрик использовать 5-15% request-to-matched-next-step как planning prior.",
+            },
+            "local_services": {
+                "metric": "lead_to_booked_slot",
+                "range": "10-30% как стартовый ориентир для записи/слота",
+                "statement": "Для local services без своих метрик использовать 10-30% lead-to-booked-slot как planning prior.",
+            },
+        }
+        return values.get(profile_key, {
+            "metric": "target_action",
+            "range": "5-15% как стартовый ориентир",
+            "statement": "Без своих метрик использовать 5-15% до целевого действия как planning prior, а не как факт рынка.",
+        })
+    values = {
+        "saas": {
+            "metric": "signup_to_first_value",
+            "range": "2-5% cold-start planning prior",
+            "statement": "For SaaS without owned metrics, use 2-5% signup-to-first-value as a planning prior, not a market fact.",
+        },
+        "education": {
+            "metric": "webinar_or_bot_to_qualified_call",
+            "range": "5-15% cold-start planning prior for the qualified next step",
+            "statement": "For education/webinar paths without owned metrics, use 5-15% to a qualified next step as a planning prior.",
+        },
+        "real_estate": {
+            "metric": "qualified_consultation_show",
+            "range": "10-25% cold-start planning prior for high-ticket qualification",
+            "statement": "For high-ticket real estate without owned metrics, use 10-25% show rate after qualification as a planning prior.",
+        },
+        "marketplace": {
+            "metric": "request_to_matched_next_step",
+            "range": "5-15% cold-start planning prior for matched next step",
+            "statement": "For marketplaces without owned metrics, use 5-15% request-to-matched-next-step as a planning prior.",
+        },
+        "local_services": {
+            "metric": "lead_to_booked_slot",
+            "range": "10-30% cold-start planning prior for booking",
+            "statement": "For local services without owned metrics, use 10-30% lead-to-booked-slot as a planning prior.",
+        },
+    }
+    return values.get(profile_key, {
+        "metric": "target_action",
+        "range": "5-15% cold-start planning prior",
+        "statement": "Without owned metrics, use 5-15% to the target action as a planning prior, not a market fact.",
+    })
+
+
+def build_benchmark_assumptions(data: dict[str, Any], niche_profile: dict[str, Any] | None, ru: bool) -> list[dict[str, str]]:
+    intake = data.get("intake", {}) if isinstance(data.get("intake"), dict) else {}
+    metrics = intake.get("metrics") if isinstance(intake.get("metrics"), list) else []
+    proof_assets = intake.get("proof_assets") if isinstance(intake.get("proof_assets"), list) else []
+    if metrics or proof_assets:
+        return []
+    benchmark = cold_start_benchmark_for(niche_profile, ru)
+    return [
+        {
+            "id": "B1",
+            "statement": benchmark["statement"],
+            "used_in": "benchmark_assumption",
+            "metric": benchmark["metric"],
+            "range": benchmark["range"],
+            "assumption_type": "benchmark_assumption",
+        }
+    ]
+
+
+def append_benchmark_assumptions(
+    assumptions: list[dict[str, Any]],
+    benchmark_assumptions: list[dict[str, str]],
+) -> list[dict[str, Any]]:
+    existing_ids = {str(row.get("id") or "") for row in assumptions}
+    result = list(assumptions)
+    for row in benchmark_assumptions:
+        if str(row.get("id") or "") not in existing_ids:
+            result.append(row)
+    return result
 
 
 def current_funnel_step_values(intake: dict[str, Any]) -> list[str]:
@@ -3417,6 +3625,55 @@ def current_funnel_diff_row(current_funnel_diff: dict[str, Any] | None, index: i
     return rows[index]
 
 
+def build_funnel_visual(
+    screens: list[dict[str, Any]],
+    channel_synthesis: dict[str, Any] | None,
+    current_funnel_diff: dict[str, Any] | None,
+    ru: bool,
+) -> dict[str, Any]:
+    nodes: list[dict[str, Any]] = []
+    edges: list[dict[str, str]] = []
+    diff_rows = current_funnel_diff.get("rows") if isinstance(current_funnel_diff, dict) and isinstance(current_funnel_diff.get("rows"), list) else []
+    for index, screen in enumerate(screens):
+        if not isinstance(screen, dict):
+            continue
+        node_id = f"step-{index + 1}"
+        diff_row = diff_rows[index] if index < len(diff_rows) and isinstance(diff_rows[index], dict) else {}
+        assumption_ids = list_value(screen.get("assumption_ids"))
+        blocked_reason = str(screen.get("blocked_reason") or "")
+        nodes.append(
+            {
+                "id": node_id,
+                "label": str(screen.get("stage") or screen.get("funnel_stage") or screen.get("name") or node_id),
+                "belief": str(screen.get("target_belief") or ""),
+                "action": str(screen.get("cta") or screen.get("owner_action") or ""),
+                "event": str(screen.get("event_id") or screen.get("measurement_event") or screen.get("metric") or ""),
+                "current_step": str(diff_row.get("current_step") or ""),
+                "evidence_mode": str(screen.get("evidence_mode") or ("assumption_backed" if assumption_ids and not list_value(screen.get("source_ids")) else "source_backed")),
+                "assumption_ids": assumption_ids,
+                "blocked_reason": blocked_reason,
+            }
+        )
+        if index > 0:
+            edges.append({"from": f"step-{index}", "to": node_id, "label": "then" if not ru else "затем"})
+
+    pack = primary_channel_pack(channel_synthesis)
+    entry_channel = str(pack.get("label") or pack.get("channel") or "") if pack else ""
+    if nodes and entry_channel:
+        nodes[0]["channel"] = entry_channel
+    return {
+        "type": "funnel_visual",
+        "status": "ready" if nodes else "empty",
+        "nodes": nodes,
+        "edges": edges,
+        "legend": {
+            "source_backed": "подтверждено источниками" if ru else "source-backed",
+            "assumption_backed": "явное допущение" if ru else "explicit assumption",
+            "blocked": "блокер перед запуском" if ru else "blocked before launch",
+        },
+    }
+
+
 def variant_measurement_event(row: dict[str, Any]) -> str:
     return str(row.get("event_id") or row.get("measurement_event") or row.get("metric") or row.get("primary_metric") or "").strip()
 
@@ -3462,16 +3719,24 @@ def variant_contract_fields(row: dict[str, Any], promise_row: dict[str, Any]) ->
     source_ids = list_value(row.get("source_ids"))
     assumption_ids = list_value(row.get("assumption_ids"))
     blocked_reason = str(row.get("blocked_reason") or "")
+    evidence_mode = str(row.get("evidence_mode") or "")
+    assumption_notice = str(row.get("assumption_notice") or "")
     if include_promise:
         claim_ids = dedupe(claim_ids + list_value(promise_row.get("claim_ids")))
         source_ids = dedupe(source_ids + list_value(promise_row.get("source_ids")))
         assumption_ids = dedupe(assumption_ids + list_value(promise_row.get("assumption_ids")))
-        blocked_reason = append_blocked_reason(blocked_reason, str(promise_row.get("blocked_reason") or ""))
+        if promise_proof_blocks_ready_to_test(promise_row):
+            blocked_reason = append_blocked_reason(blocked_reason, str(promise_row.get("blocked_reason") or ""))
+        elif assumption_ids and not source_ids:
+            evidence_mode = "assumption_backed"
+            assumption_notice = append_blocked_reason(assumption_notice, str(promise_row.get("fallback") or promise_row.get("blocked_reason") or ""))
     return {
         "claim_ids": claim_ids,
         "source_ids": source_ids,
         "assumption_ids": assumption_ids,
         "blocked_reason": blocked_reason,
+        "evidence_mode": evidence_mode,
+        "assumption_notice": assumption_notice,
     }
 
 
@@ -3781,6 +4046,8 @@ def build_reviewer_approval(data: dict[str, Any], insights: dict[str, Any], ru: 
         blocked = str(row.get("blocked_reason") or "").strip()
         assumption_ids = list_value(row.get("assumption_ids"))
         source_ids = list_value(row.get("source_ids"))
+        if str(row.get("evidence_mode") or "") == "assumption_backed" and not blocked:
+            continue
         generic_research_blocker = blocked in {
             "needs evidence before launch",
             "нужно подтвердить источники перед запуском",
@@ -3844,6 +4111,41 @@ def reviewer_approval_blockers(reviewer_approval: dict[str, Any], ru: bool) -> l
         reason = "reviewer approval required" if not ru else "требуется одобрение ревьюера"
     prefix = "одобрение ревьюера" if ru else "reviewer approval"
     return [f"{prefix}: {reason}"]
+
+
+def launch_readiness_blockers(insights: dict[str, Any], ru: bool) -> list[str]:
+    blockers: list[str] = []
+    promise_rows = insights.get("promise_proof_model") if isinstance(insights.get("promise_proof_model"), list) else []
+    for row in promise_rows:
+        if not isinstance(row, dict):
+            continue
+        status = str(row.get("evidence_status") or "")
+        if not promise_proof_blocks_ready(status):
+            continue
+        reason = str(row.get("blocked_reason") or status)
+        blockers.append(
+            f"promise proof: {reason}" if not ru else f"доказательство обещания: {reason}"
+        )
+    for row in recommendation_rows(insights):
+        if not isinstance(row, dict):
+            continue
+        if str(row.get("blocked_reason") or "").strip():
+            blockers.append(
+                f"recommendation {row.get('id') or row.get('type')}: {row.get('blocked_reason')}"
+                if not ru
+                else f"рекомендация {row.get('id') or row.get('type')}: {row.get('blocked_reason')}"
+            )
+            continue
+        if list_value(row.get("assumption_ids")) and str(row.get("evidence_mode") or "") == "assumption_backed":
+            blockers.append(
+                f"recommendation {row.get('id') or row.get('type')} is assumption-backed"
+                if not ru
+                else f"рекомендация {row.get('id') or row.get('type')} основана на допущении"
+            )
+    approval = insights.get("reviewer_approval") if isinstance(insights.get("reviewer_approval"), dict) else {}
+    if approval.get("status") == "required":
+        blockers.append(str(approval.get("blocked_reason") or ("reviewer approval required" if not ru else "требуется одобрение ревьюера")))
+    return dedupe([blocker for blocker in blockers if present(blocker)])
 
 
 def apply_competitor_patterns_to_screens(
@@ -4435,6 +4737,7 @@ def validate_and_write(workspace: Path) -> dict[str, Any]:
         ready = recommendations_are_ready(data, research, ev_gaps, conflicts)
         phase = "ready" if ready else "research" if gate else "intake"
     insights["evidence_quality"] = evidence_quality
+    launch_gaps = launch_readiness_blockers(insights, ru)
     statuses = artifact_status(data)
     statuses["final"] = "ready" if ready else "draft" if gate else "blocked"
 
@@ -4446,6 +4749,8 @@ def validate_and_write(workspace: Path) -> dict[str, Any]:
             "updated_at": utc_now(),
             "phase": phase,
             "minimum_gate_satisfied": gate,
+            "ready_to_test": ready,
+            "ready_for_launch": False,
             "scores": {
                 "completeness": completeness,
                 "qualification": qualification,
@@ -4454,6 +4759,7 @@ def validate_and_write(workspace: Path) -> dict[str, Any]:
             "artifact_status": statuses,
             "critical_missing_fields": missing,
             "evidence_gaps": ev_gaps,
+            "launch_blockers": launch_gaps,
             "contradictions": conflicts,
             "warnings": build_warnings(data, ev_gaps, conflicts),
             "next_best_input": questions,
@@ -4471,6 +4777,7 @@ def validate_and_write(workspace: Path) -> dict[str, Any]:
             "ask_user": questions,
             "auto_collect": auto_collect_tasks(data),
             "blocked_recommendations": dedupe(blocked_recommendations(data) + contract_errors),
+            "launch_blockers": launch_gaps,
             "conflicts": conflicts,
             "updated_at": state["updated_at"],
             "output_language": language,
@@ -4509,6 +4816,7 @@ def validate_and_write(workspace: Path) -> dict[str, Any]:
         "decision": state["decision"],
         "critical_missing_fields": missing,
         "evidence_gaps": ev_gaps,
+        "launch_blockers": launch_gaps,
         "contradictions": conflicts,
         "warnings": state["warnings"],
         "next_best_input": questions,
@@ -4516,7 +4824,11 @@ def validate_and_write(workspace: Path) -> dict[str, Any]:
         "source_count": len(data["sources"]),
         "competitor_count": len(data["competitors"]),
         "recommendations_ready": ready,
+        "ready_to_test": ready,
     }
+    summary["ready_for_launch"] = summary_ready_for_launch(summary)
+    state["ready_for_launch"] = summary["ready_for_launch"]
+    write_json(runtime_path(workspace, "run_state.json"), state)
     contract_data = {
         **data,
         "state": state,
@@ -4978,21 +5290,9 @@ def csv_value(value: Any) -> str:
 
 
 def global_export_blocked_reason(summary: dict[str, Any]) -> str:
-    if summary.get("recommendations_ready") and summary.get("phase") == "ready":
+    if summary_ready_for_launch(summary):
         return ""
-    reasons: list[str] = []
-    missing = list_value(summary.get("critical_missing_fields"))
-    if missing:
-        reasons.append("missing_fields: " + ", ".join(missing))
-    gaps = list_value(summary.get("evidence_gaps"))
-    if gaps:
-        reasons.append("evidence_gaps: " + "; ".join(gaps[:6]))
-    conflicts = list_value(summary.get("contradictions"))
-    if conflicts:
-        reasons.append("contradictions: " + "; ".join(conflicts))
-    if not reasons:
-        reasons.append(f"phase is {summary.get('phase') or 'unknown'}; recommendations are not ready")
-    return "; ".join(reasons)
+    return "; ".join(launch_blockers(summary))
 
 
 def export_contract_fields(
@@ -5002,14 +5302,19 @@ def export_contract_fields(
 ) -> dict[str, Any]:
     fallback = fallback or {}
     global_blocker = global_export_blocked_reason(summary)
-    blocked_reason = append_blocked_reason(row.get("blocked_reason") or fallback.get("blocked_reason"), global_blocker)
+    blocked_reason = str(row.get("blocked_reason") or fallback.get("blocked_reason") or "")
+    launch_blocked_reason = append_blocked_reason(blocked_reason, global_blocker)
     source_ids = list_value(row.get("source_ids")) or list_value(fallback.get("source_ids"))
-    ready = bool(summary.get("recommendations_ready") and summary.get("phase") == "ready" and source_ids and not blocked_reason)
+    assumption_ids = list_value(row.get("assumption_ids")) or list_value(fallback.get("assumption_ids"))
+    ready_to_test = bool(summary.get("ready_to_test") and summary.get("phase") == "ready" and not blocked_reason)
+    ready = bool(summary_ready_for_launch(summary) and source_ids and not assumption_ids and not launch_blocked_reason)
     return {
         "claim_ids": list_value(row.get("claim_ids")) or list_value(fallback.get("claim_ids")),
         "source_ids": source_ids,
-        "assumption_ids": list_value(row.get("assumption_ids")) or list_value(fallback.get("assumption_ids")),
+        "assumption_ids": assumption_ids,
         "blocked_reason": blocked_reason,
+        "launch_blocked_reason": launch_blocked_reason,
+        "ready_to_test": ready_to_test,
         "ready": ready,
     }
 
@@ -5023,6 +5328,8 @@ def first_contract_row(rows: list[dict[str, Any]], summary: dict[str, Any]) -> d
         "source_ids": [],
         "assumption_ids": [],
         "blocked_reason": global_export_blocked_reason(summary),
+        "launch_blocked_reason": global_export_blocked_reason(summary),
+        "ready_to_test": False,
         "ready": False,
     }
 
@@ -5039,7 +5346,8 @@ def base_export_payload(
         "workspace": str(workspace),
         "generated_at": utc_now(),
         "phase": summary.get("phase"),
-        "ready_for_launch": bool(summary.get("recommendations_ready") and summary.get("phase") == "ready"),
+        "ready_to_test": bool(summary.get("ready_to_test")),
+        "ready_for_launch": summary_ready_for_launch(summary),
         "blocked_reason": global_export_blocked_reason(summary),
         "output_language": output_language(data),
     }
@@ -5063,7 +5371,7 @@ def action_plan_export(workspace: Path, data: dict[str, Any], summary: dict[str,
         items.append(item)
     payload = base_export_payload("action_plan", workspace, data, summary)
     payload["items"] = items
-    headers = ["id", "type", "stage", "title", "owner_action", "measurement_event", "ready", "blocked_reason", "claim_ids", "source_ids", "assumption_ids"]
+    headers = ["id", "type", "stage", "title", "owner_action", "measurement_event", "ready_to_test", "ready", "blocked_reason", "launch_blocked_reason", "claim_ids", "source_ids", "assumption_ids"]
     return payload, [{key: csv_value(item.get(key)) for key in headers} for item in items], headers
 
 
@@ -5152,7 +5460,7 @@ def event_schema_export(workspace: Path, data: dict[str, Any], summary: dict[str
             )
     payload = base_export_payload("event_schema", workspace, data, summary)
     payload["events"] = events
-    headers = ["event_id", "source_type", "source_id", "stage", "description", "required_properties", "ready", "blocked_reason", "claim_ids", "source_ids", "assumption_ids"]
+    headers = ["event_id", "source_type", "source_id", "stage", "description", "required_properties", "ready_to_test", "ready", "blocked_reason", "launch_blocked_reason", "claim_ids", "source_ids", "assumption_ids"]
     return payload, [{key: csv_value(event.get(key)) for key in headers} for event in events], headers
 
 
@@ -5177,7 +5485,7 @@ def content_brief_export(workspace: Path, data: dict[str, Any], summary: dict[st
         )
     payload = base_export_payload("content_brief", workspace, data, summary)
     payload["briefs"] = briefs
-    headers = ["brief_id", "stage", "target_belief", "content", "cta", "proof_needed", "channel_pack", "ready", "blocked_reason", "claim_ids", "source_ids", "assumption_ids"]
+    headers = ["brief_id", "stage", "target_belief", "content", "cta", "proof_needed", "channel_pack", "ready_to_test", "ready", "blocked_reason", "launch_blocked_reason", "claim_ids", "source_ids", "assumption_ids"]
     return payload, [{key: csv_value(brief.get(key)) for key in headers} for brief in briefs], headers
 
 
@@ -5205,7 +5513,7 @@ def crm_handoff_export(workspace: Path, data: dict[str, Any], summary: dict[str,
         )
     payload = base_export_payload("crm_handoff", workspace, data, summary)
     payload["handoffs"] = handoffs
-    headers = ["handoff_id", "trigger_event", "target_segment", "primary_channel", "owner_action", "crm_fields", "handoff_note", "ready", "blocked_reason", "claim_ids", "source_ids", "assumption_ids"]
+    headers = ["handoff_id", "trigger_event", "target_segment", "primary_channel", "owner_action", "crm_fields", "handoff_note", "ready_to_test", "ready", "blocked_reason", "launch_blocked_reason", "claim_ids", "source_ids", "assumption_ids"]
     return payload, [{key: csv_value(handoff.get(key)) for key in headers} for handoff in handoffs], headers
 
 
@@ -5233,7 +5541,7 @@ def funnel_diff_export(workspace: Path, data: dict[str, Any], summary: dict[str,
     payload["status"] = str(current_diff.get("status") or "")
     payload["raw_current_steps"] = list_value(current_diff.get("raw_current_steps"))
     payload["diffs"] = items
-    headers = ["diff_id", "current_step", "proposed_stage", "proposed_step", "change_type", "reason", "measurement_event", "ready", "blocked_reason", "claim_ids", "source_ids", "assumption_ids"]
+    headers = ["diff_id", "current_step", "proposed_stage", "proposed_step", "change_type", "reason", "measurement_event", "ready_to_test", "ready", "blocked_reason", "launch_blocked_reason", "claim_ids", "source_ids", "assumption_ids"]
     return payload, [{key: csv_value(item.get(key)) for key in headers} for item in items], headers
 
 
@@ -5278,8 +5586,10 @@ def variant_bundles_export(workspace: Path, data: dict[str, Any], summary: dict[
         "proof_requirement",
         "measurement_event",
         "guardrail",
+        "ready_to_test",
         "ready",
         "blocked_reason",
+        "launch_blocked_reason",
         "claim_ids",
         "source_ids",
         "assumption_ids",
@@ -5324,7 +5634,7 @@ def reviewer_approval_export(workspace: Path, data: dict[str, Any], summary: dic
             "review_items": items,
         }
     )
-    headers = ["review_id", "review_type", "target_id", "target_type", "risk_level", "reason", "ready", "blocked_reason", "claim_ids", "source_ids", "assumption_ids"]
+    headers = ["review_id", "review_type", "target_id", "target_type", "risk_level", "reason", "ready_to_test", "ready", "blocked_reason", "launch_blocked_reason", "claim_ids", "source_ids", "assumption_ids"]
     return payload, [{key: csv_value(item.get(key)) for key in headers} for item in items], headers
 
 
@@ -5412,8 +5722,10 @@ def experiment_card_export(workspace: Path, data: dict[str, Any], summary: dict[
         "ship_rule",
         "iterate_rule",
         "failure_mode",
+        "ready_to_test",
         "ready",
         "blocked_reason",
+        "launch_blocked_reason",
         "claim_ids",
         "source_ids",
         "assumption_ids",
@@ -5466,7 +5778,8 @@ def export_launch_package(workspace: Path) -> dict[str, Any]:
         "workspace": str(workspace),
         "generated_at": utc_now(),
         "phase": summary.get("phase"),
-        "ready_for_launch": bool(summary.get("recommendations_ready") and summary.get("phase") == "ready"),
+        "ready_to_test": bool(summary.get("ready_to_test")),
+        "ready_for_launch": summary_ready_for_launch(summary),
         "blocked_reason": global_export_blocked_reason(summary),
         "exports": exports,
     }
@@ -5477,6 +5790,7 @@ def export_launch_package(workspace: Path) -> dict[str, Any]:
     return {
         "exported": True,
         "exports_dir": str(directory),
+        "ready_to_test": manifest["ready_to_test"],
         "ready_for_launch": manifest["ready_for_launch"],
         "blocked_reason": manifest["blocked_reason"],
         "files": exports | {"manifest": {"json": str(export_path(workspace, "manifest.json")), "rows": len(exports)}},
@@ -5630,6 +5944,17 @@ def markdown_to_html_page(title: str, markdown: str, slug: str, nav: list[tuple[
     td.confidence-high, td.confidence-высокая {{ color: var(--good); font-weight: 700; }}
     td.confidence-medium, td.confidence-средняя {{ color: var(--warn); font-weight: 700; }}
     td.confidence-low, td.confidence-низкая {{ color: var(--bad); font-weight: 700; }}
+    .funnel-visual {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 16px 0 28px; }}
+    .funnel-node {{ position: relative; min-height: 150px; border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 16px; }}
+    .funnel-node::after {{ content: "→"; position: absolute; right: -13px; top: 50%; transform: translateY(-50%); color: var(--muted); font-weight: 700; }}
+    .funnel-node:last-child::after {{ content: ""; }}
+    .funnel-node p {{ margin: 10px 0; font-size: 14px; line-height: 1.45; }}
+    .funnel-node small {{ display: block; color: var(--muted); line-height: 1.4; }}
+    .funnel-node.assumption-backed {{ background: #fffbeb; border-color: #f7c948; }}
+    .funnel-node.blocked {{ background: #fff1f0; border-color: #ffb4ad; }}
+    .funnel-badge {{ display: inline-block; margin-bottom: 8px; padding: 3px 7px; border-radius: 999px; background: #eef2f5; color: #425466; font-size: 12px; font-weight: 700; }}
+    .assumption-backed .funnel-badge {{ background: #fef3c7; color: #92400e; }}
+    .blocked .funnel-badge {{ background: #fee2e2; color: #991b1b; }}
     .pager-row {{ display: flex; gap: 12px; justify-content: space-between; margin-top: 40px; }}
     .pager {{ border: 1px solid var(--line); background: #fff; color: var(--ink); padding: 10px 14px; border-radius: 6px; text-decoration: none; }}
     .pager.disabled {{ color: var(--muted); }}
@@ -5659,6 +5984,7 @@ def markdown_to_html(markdown: str) -> str:
     in_ol = False
     in_blockquote = False
     in_table = False
+    in_raw_html = False
     table_rows: list[list[str]] = []
 
     def close_lists() -> None:
@@ -5700,6 +6026,19 @@ def markdown_to_html(markdown: str) -> str:
 
     for line in lines:
         stripped = line.strip()
+        if in_raw_html:
+            html.append(line)
+            if stripped == "</div>":
+                in_raw_html = False
+            continue
+        if stripped.startswith('<div class="funnel-visual"'):
+            flush_table()
+            close_lists()
+            close_blockquote()
+            html.append(line)
+            if stripped != "</div>":
+                in_raw_html = True
+            continue
         if stripped.startswith("|") and stripped.endswith("|"):
             close_lists()
             close_blockquote()

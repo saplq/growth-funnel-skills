@@ -123,12 +123,12 @@ def readiness_label(data: dict[str, Any], ru: bool) -> str:
     phase = str(state.get("phase") or "")
     if ru:
         if phase == "ready":
-            return "готово к аккуратному запуску"
+            return "готово к тесту с явными допущениями"
         if phase == "research":
             return "черновик: нужны данные перед запуском"
         return "заблокировано: не хватает входного контекста"
     if phase == "ready":
-        return "ready to launch carefully"
+        return "ready to test with explicit assumptions"
     if phase == "research":
         return "draft: data needed before launch"
     return "blocked: intake needed"
@@ -161,6 +161,7 @@ def usage_label(value: Any, ru: bool) -> str:
         "tracking_plan": "метрики и события",
         "experiment": "первый тест",
         "promise_proof": "проверка обещания и доказательства",
+        "benchmark_assumption": "рыночное допущение для холодного старта",
         "all recommendations": "все рекомендации",
     }
     return values.get(text, text.replace("_", " "))
@@ -372,7 +373,8 @@ def render_status(data: dict[str, Any]) -> str:
 | Критерий | Значение |
 | --- | --- |
 | Статус | {table_cell(readiness_label(data, ru), ru)} |
-| Можно запускать без дополнительных данных | {yes_no(state.get('phase') == 'ready', ru)} |
+| Готово к тесту | {yes_no(bool(state.get('ready_to_test')), ru)} |
+| Готово к launch handoff | {yes_no(bool(state.get('ready_for_launch')), ru)} |
 | Полнота контекста | {state.get('scores', {}).get('completeness', 0)}/100 |
 | Готовность к рабочей воронке | {state.get('scores', {}).get('qualification', 0)}/100 |
 | Готовность данных | {state.get('scores', {}).get('research_readiness', 0)}/100 |
@@ -404,7 +406,8 @@ def render_status(data: dict[str, Any]) -> str:
 | Criterion | Value |
 | --- | --- |
 | Status | {table_cell(summary.get('status'))} |
-| Recommendations ready | {yes_no(state.get('phase') == 'ready', ru)} |
+| Ready to test | {yes_no(bool(state.get('ready_to_test')), ru)} |
+| Ready for launch handoff | {yes_no(bool(state.get('ready_for_launch')), ru)} |
 | Completeness | {state.get('scores', {}).get('completeness', 0)}/100 |
 | Qualification | {state.get('scores', {}).get('qualification', 0)}/100 |
 | Research readiness | {state.get('scores', {}).get('research_readiness', 0)}/100 |
@@ -477,6 +480,7 @@ def render_evidence(data: dict[str, Any]) -> str:
     item = insights(data)
     evidence_refs = item.get("evidence_refs", []) if isinstance(item.get("evidence_refs"), list) else []
     assumptions = item.get("assumptions", []) if isinstance(item.get("assumptions"), list) else []
+    benchmark_assumptions = item.get("benchmark_assumptions", []) if isinstance(item.get("benchmark_assumptions"), list) else []
     promise_proof = item.get("promise_proof_model", []) if isinstance(item.get("promise_proof_model"), list) else []
     results = data["agent_results"]
     if ru:
@@ -489,6 +493,10 @@ def render_evidence(data: dict[str, Any]) -> str:
 ## Допущения вместо выдуманных фактов
 
 {assumptions_table(assumptions, ru)}
+
+## Бенчмарки для холодного старта
+
+{benchmark_assumptions_table(benchmark_assumptions, ru)}
 
 ## Проверка обещания и доказательства
 
@@ -511,6 +519,10 @@ def render_evidence(data: dict[str, Any]) -> str:
 ## Assumptions Instead Of Invented Facts
 
 {assumptions_table(assumptions, ru)}
+
+## Cold-Start Benchmarks
+
+{benchmark_assumptions_table(benchmark_assumptions, ru)}
 
 ## Promise-Proof Check
 
@@ -566,6 +578,7 @@ def render_blueprint(data: dict[str, Any]) -> str:
     screens = item.get("screens", []) if isinstance(item.get("screens"), list) else []
     channel_synthesis = item.get("channel_synthesis") if isinstance(item.get("channel_synthesis"), dict) else {}
     current_diff = item.get("current_funnel_diff") if isinstance(item.get("current_funnel_diff"), dict) else {}
+    funnel_visual = item.get("funnel_visual") if isinstance(item.get("funnel_visual"), dict) else {}
     skeleton, fallback_rationale = select_funnel_skeleton(data)
     path_label = summary.get("path_label") or skeleton_label(skeleton, ru)
     rationale = str(summary.get("rationale") or fallback_rationale)
@@ -584,6 +597,8 @@ def render_blueprint(data: dict[str, Any]) -> str:
 - На чем основано: {dash(summary.get('support'), ru)}
 
 ## Маршрут пользователя
+
+{funnel_visual_block(funnel_visual, ru)}
 
 {funnel_map_table(screens, ru)}
 
@@ -605,6 +620,8 @@ def render_blueprint(data: dict[str, Any]) -> str:
 - Support: `{dash(summary.get('support'))}`
 
 ## User Route
+
+{funnel_visual_block(funnel_visual, ru)}
 
 {funnel_map_table(screens, ru)}
 
@@ -840,6 +857,7 @@ def current_funnel_support_label(row: dict[str, Any], ru: bool) -> str:
     source_ids = ", ".join(list_items(row.get("source_ids")))
     assumption_ids = ", ".join(list_items(row.get("assumption_ids")))
     blocked_reason = dash(row.get("blocked_reason"), ru)
+    assumption_notice = dash(row.get("assumption_notice"), ru)
     if claim_ids:
         pieces.append(("утверждения: " if ru else "claims: ") + claim_ids)
     if source_ids:
@@ -848,6 +866,8 @@ def current_funnel_support_label(row: dict[str, Any], ru: bool) -> str:
         pieces.append(("допущения: " if ru else "assumptions: ") + assumption_ids)
     if blocked_reason not in {"-", "не указано"}:
         pieces.append(("блокер: " if ru else "blocked: ") + blocked_reason)
+    if assumption_notice not in {"-", "не указано"}:
+        pieces.append(("допущение: " if ru else "assumption: ") + assumption_notice)
     return "; ".join(pieces) or ("не указано" if ru else "-")
 
 
@@ -1046,6 +1066,30 @@ def experiment_table(rows: list[dict[str, Any]], ru: bool) -> str:
 
 
 def experiment_quality_table(rows: list[dict[str, Any]], ru: bool) -> str:
+    low_traffic = any(
+        "too low for reliable srm" in str(row.get("srm_check") or "").lower()
+        or "трафика мало" in str(row.get("srm_check") or "").lower()
+        for row in rows
+        if isinstance(row, dict)
+    )
+    if low_traffic:
+        headers = (
+            ("Событие", "План обучения", "Проверка качества", "Оставить / итерировать", "Риск ошибки")
+            if ru
+            else ("Event", "Learning plan", "Quality check", "Ship / iterate", "Failure mode")
+        )
+        if not rows:
+            return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} |\n| --- | --- | --- | --- | --- |\n| - | - | - | - | - |"
+        body = "\n".join(
+            (
+                f"| {table_cell(row.get('event_id'), ru)} | {table_cell(row.get('expected_effect_range'), ru)} | "
+                f"{table_cell(row.get('event_instrumentation'), ru)} | "
+                f"{table_cell('; '.join([dash(row.get('ship_rule'), ru), dash(row.get('iterate_rule'), ru)]), ru)} | "
+                f"{table_cell(row.get('failure_mode'), ru)} |"
+            )
+            for row in rows
+        )
+        return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} |\n| --- | --- | --- | --- | --- |\n{body}"
     headers = (
         ("Событие", "Экспозиция", "Контрольные метрики", "SRM", "Потеря событий", "Ожидаемый эффект", "Остановить / оставить / итерировать", "Риск ошибки")
         if ru
@@ -1086,6 +1130,66 @@ def assumptions_table(rows: list[dict[str, Any]], ru: bool) -> str:
         for row in rows
     )
     return f"| {headers[0]} | {headers[1]} | {headers[2]} |\n| --- | --- | --- |\n{body}"
+
+
+def benchmark_assumptions_table(rows: list[dict[str, Any]], ru: bool) -> str:
+    headers = ("ID", "Метрика", "Ориентир", "Статус") if ru else ("ID", "Metric", "Prior", "Status")
+    if not rows:
+        empty = "нет benchmark-допущений" if ru else "no benchmark assumptions"
+        return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} |\n| --- | --- | --- | --- |\n| - | - | - | {empty} |"
+    label = "допущение, не доказанный факт" if ru else "assumption, not a proven fact"
+    body = "\n".join(
+        f"| {table_cell(row.get('id'), ru)} | {table_cell(row.get('metric'), ru)} | {table_cell(row.get('range'), ru)} | {label} |"
+        for row in rows
+    )
+    return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} |\n| --- | --- | --- | --- |\n{body}"
+
+
+def visual_support_badge(node: dict[str, Any], ru: bool) -> str:
+    if node.get("blocked_reason"):
+        return "Блокер" if ru else "Blocked"
+    if str(node.get("evidence_mode") or "") == "assumption_backed":
+        return "Допущение" if ru else "Assumption"
+    return "Источник" if ru else "Source"
+
+
+def funnel_visual_block(visual: dict[str, Any], ru: bool) -> str:
+    nodes = visual.get("nodes") if isinstance(visual.get("nodes"), list) else []
+    if not nodes:
+        return ""
+    title = "Визуальная карта пути" if ru else "Visual Funnel Map"
+    node_html = []
+    for node in nodes:
+        if not isinstance(node, dict):
+            continue
+        mode = "assumption-backed" if str(node.get("evidence_mode") or "") == "assumption_backed" else "source-backed"
+        if node.get("blocked_reason"):
+            mode += " blocked"
+        assumption_ids = ", ".join(list_items(node.get("assumption_ids")))
+        meta_parts = [
+            str(node.get("event") or "").strip(),
+            ("допущения: " + assumption_ids) if ru and assumption_ids else ("assumptions: " + assumption_ids) if assumption_ids else "",
+        ]
+        meta = " / ".join(part for part in meta_parts if part)
+        node_html.append(
+            "<div class=\"funnel-node {mode}\">"
+            "<span class=\"funnel-badge\">{badge}</span>"
+            "<strong>{label}</strong>"
+            "<p>{belief}</p>"
+            "<small>{meta}</small>"
+            "</div>".format(
+                mode=mode,
+                badge=escape(visual_support_badge(node, ru)),
+                label=escape(str(node.get("label") or "")),
+                belief=escape(str(node.get("belief") or node.get("action") or "")),
+                meta=escape(meta),
+            )
+        )
+    return f"""### {title}
+
+<div class="funnel-visual" role="img" aria-label="{title}">
+{''.join(node_html)}
+</div>"""
 
 
 def promise_status_label(value: Any, ru: bool) -> str:
@@ -1362,6 +1466,7 @@ def render_pages(workspace: Path) -> dict[str, Any]:
     link_label = "Открыть финальный HTML" if is_russian(data) else "Open final HTML"
     summary["rendered"] = True
     summary["recommendations_ready"] = summary.get("phase") == "ready"
+    summary["ready_to_test"] = summary.get("phase") == "ready"
     summary["final_index_path"] = str(final_index)
     summary["final_index_chat_link"] = markdown_file_link(final_index, link_label)
     summary["final_leakage"] = leaks

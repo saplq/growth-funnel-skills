@@ -26,12 +26,14 @@
       "input": "Offer: weekly conversion audits\nICP: SaaS founders\nTarget KPI: trial activation\nChannel: LinkedIn content\nNo proof yet",
       "expected": [
         "minimum gate is satisfied",
-        "recommendations_ready remains false until research readiness reaches ready state",
+        "phase is ready and ready_to_test is true when recommendations are explicitly assumption-backed",
+        "ready_for_launch remains false until proof and evidence launch blockers are resolved",
         "post-gate next_best_input has no more than 2 topic-specific clarify questions",
         "qualification score is lower than with proof",
         "no proof claims are fabricated",
         "promise_proof_model marks the main promise as no_proof with an assumption fallback",
-        "variant_bundles keep no-proof copy or CTA rows blocked with assumption_ids and blocked_reason",
+        "variant_bundles keep no-proof copy or CTA rows ready_to_test with assumption_ids, evidence_mode=assumption_backed, and no runtime blocked_reason",
+        "exports keep assumption-backed rows ready=false with launch_blocked_reason",
         "final pack renders clean Markdown and HTML",
         "recommendations cite evidence refs or explicit assumptions"
       ]
@@ -110,7 +112,7 @@
         "experiment card includes hypothesis, target segment, primary metric, guardrail metrics, exposure definition, event instrumentation, SRM check, event loss threshold, expected effect range, stop/ship/iterate rules, and failure mode",
         "measurement_event equals a concrete event_id rather than a raw KPI label",
         "low-traffic case uses qualitative or sequential learning plan and does not claim statistical lift",
-        "renderer exposes SRM, event loss, expected effect, and stop/ship/iterate thresholds clearly"
+        "runtime/export keeps SRM and event-loss fields, while final renderer shows a compact sequential-learning plan for low traffic"
       ]
     },
     {
@@ -124,12 +126,12 @@
         "final pages render the education niche profile without raw niche_profile JSON",
         "final report renders primary channel and support loops without raw channel_synthesis JSON",
         "promise_proof_model marks no-proof promises as assumptions with blocked_reason",
-        "variant_bundles inherit no-proof assumption_ids and blocked_reason instead of marking copy or CTA variants ready",
+        "variant_bundles inherit no-proof assumption_ids and evidence_mode=assumption_backed while launch exports remain blocked",
         "proof mechanics guidance recommends a proof format but does not treat the recommendation as evidence",
         "income claims remain blocked because proof is missing",
         "recommendations use assumption_ids when evidence is insufficient",
-        "machine-readable launch exports remain blocked and do not mark rows ready while phase is draft or research",
-        "phase remains draft/research unless evidence quality is sufficient"
+        "machine-readable launch exports remain blocked and do not mark assumption-backed rows ready for launch",
+        "phase can be ready_to_test with explicit assumptions while ready_for_launch remains false"
       ]
     },
     {
@@ -142,12 +144,12 @@
         "final pages render the real estate niche profile without raw niche_profile JSON",
         "competitor_synthesis renders trust/qualification patterns without inventing legal or return proof",
         "promise_proof_model flags risky legal/payment/return promises without source-backed proof",
-        "proof mechanics guidance does not convert risky_unverified, weak_proof, or no_proof into ready",
+        "proof mechanics guidance does not convert risky_unverified into ready_to_test or weak/no proof into ready_for_launch",
         "source-backed high-risk promises still require explicit human reviewer approval before phase=ready",
         "human reviewer approval does not unblock missing, weak, stale, or low-weight evidence",
         "trust-path recommendations include structured support fields",
         "generic consultation recommendations without claim_ids or support fail contract validation",
-        "ready phase is blocked without strong evidence despite a renderable draft report"
+        "ready phase is blocked for high-risk claims without strong evidence despite a renderable draft report"
       ]
     }
   ]

@@ -4,7 +4,7 @@ Use this when the funnel depends on current market, pricing, competitor, platfor
 
 ## Research Capability
 
-Live research is allowed only through available host tools or the bundled `scripts/research_web.py` collector. If neither path is available, do not claim that current research was performed. Mark the missing research in `runtime/gaps.json` and keep recommendations draft.
+Live research is allowed only through available host tools or the bundled `scripts/research_web.py` collector. If neither path is available, do not claim that current research was performed. Mark the missing research in `runtime/gaps.json`; recommendations may still be ready to test only when they are explicitly assumption-backed and launch blockers remain visible.
 
 `research_web.py` is a read-only, best-effort search-result collector. It uses the Python standard library, public search-result HTML, and no API keys. Public search pages can change or block automated requests, so host browser/search/MCP tools remain the preferred route for high-stakes work.
 
@@ -20,7 +20,7 @@ For each funnel package, collect evidence for these topics when relevant:
 - review sites or community discussions only for qualitative objections and language;
 - category reports or benchmark sources only when publisher quality is clear.
 
-Minimum ready-state evidence:
+Minimum launch-ready evidence:
 
 - at least 3 current external source rows;
 - at least 3 competitor rows with source and retrieval date;
@@ -28,6 +28,8 @@ Minimum ready-state evidence:
 - no unresolved contradictions;
 - every segment, screen, and experiment points to an evidence ref or explicit assumption.
 - every competitor row has source, retrieval date, and at least one observed field such as positioning, pricing, CTA, onboarding, proof, or first-value path.
+
+Ready-to-test evidence can be weaker when the project is in cold start. In that case, use `assumption_ids`, `evidence_mode=assumption_backed`, and `launch_blocked_reason`; do not set launch rows `ready=true`.
 
 ## Source Weight
 

@@ -42,7 +42,7 @@ Default decision:
 
 ## Intake Behavior
 
-Before the minimum gate is complete, ask at most 3 questions. Choose missing fields by impact:
+Before the minimum gate is complete, write up to 3 prioritized questions into `next_best_input`, but ask the user only one question at a time in chat. Choose missing fields by impact:
 
 1. target KPI;
 2. offer;
@@ -63,12 +63,23 @@ Prefer rough input over waiting for perfect input. Mark assumptions clearly.
 
 ## Readiness
 
-`minimum_gate_satisfied` means the agent has enough input to draft a package. It does not mean recommendations are ready.
+`minimum_gate_satisfied` means the agent has enough input to create a useful ready-to-test package. It does not mean the launch handoff is safe.
 
-Recommendations are ready only when:
+Use two readiness levels:
+
+- `ready_to_test`: minimum gate is satisfied, contradictions are resolved, high-risk promises are not unresolved, and every recommendation has source or assumption coverage.
+- `ready_for_launch`: no evidence gaps, no weak or missing proof, no unresolved reviewer approval, and no row-level launch blockers.
+
+Recommendations can be ready to test when:
 
 - the minimum gate is satisfied;
+- recommendations use evidence refs or explicit `assumption_ids`;
+- `no_proof` or `weak_proof` is low/medium risk and visibly assumption-backed;
+- contradictions are resolved.
+
+Launch handoff is ready only when:
+
 - research readiness is at least 60;
 - at least 3 sourced competitor rows are recorded;
 - evidence gaps are resolved;
-- contradictions are resolved.
+- proof and reviewer approval blockers are resolved.

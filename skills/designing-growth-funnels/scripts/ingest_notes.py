@@ -194,6 +194,8 @@ def extract_proofs(text: str) -> list[str]:
     negative = re.compile(r"\b(no proof|no proofs|no case studies|no testimonials)\b|(нет доказательств|нет кейсов|нет отзывов)", re.IGNORECASE)
     for line in text.splitlines():
         clean = line.strip(" -\t")
+        if clean.lower().startswith("competitor:") or clean.lower().startswith("конкурент:"):
+            continue
         if clean and proof_terms.search(clean) and not negative.search(clean):
             rows.append(clean)
     return rows

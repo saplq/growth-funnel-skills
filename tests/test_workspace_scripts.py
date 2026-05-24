@@ -675,8 +675,9 @@ class WorkspaceScriptsTest(unittest.TestCase):
 
             result = run_script("export_launch.py", str(workspace), "--json")
 
+            self.assertTrue(result["ready_to_test"])
             self.assertFalse(result["ready_for_launch"])
-            self.assertIn("evidence_gaps", result["blocked_reason"])
+            self.assertIn("promise proof", result["blocked_reason"])
             assert_launch_exports(workspace)
             action_plan = json.loads((workspace / "exports" / "action_plan.json").read_text(encoding="utf-8"))
             variant_bundles = json.loads((workspace / "exports" / "variant_bundles.json").read_text(encoding="utf-8"))
@@ -684,16 +685,22 @@ class WorkspaceScriptsTest(unittest.TestCase):
             self.assertFalse(action_plan["ready_for_launch"])
             self.assertTrue(action_plan["blocked_reason"])
             for item in action_plan["items"]:
+                self.assertTrue(item["ready_to_test"])
                 self.assertFalse(item["ready"])
                 self.assertTrue(item["assumption_ids"])
-                self.assertTrue(item["blocked_reason"])
+                self.assertFalse(item["blocked_reason"])
+                self.assertTrue(item["launch_blocked_reason"])
             for item in variant_bundles["variants"]:
+                self.assertTrue(item["ready_to_test"])
                 self.assertFalse(item["ready"])
                 self.assertTrue(item["assumption_ids"])
-                self.assertTrue(item["blocked_reason"])
+                self.assertFalse(item["blocked_reason"])
+                self.assertTrue(item["launch_blocked_reason"])
             for item in experiment_card["experiments"]:
+                self.assertTrue(item["ready_to_test"])
                 self.assertFalse(item["ready"])
-                self.assertTrue(item["blocked_reason"])
+                self.assertFalse(item["blocked_reason"])
+                self.assertTrue(item["launch_blocked_reason"])
 
     def test_current_funnel_diff_uses_provided_steps_in_runtime_final_and_exports(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -794,14 +801,17 @@ class WorkspaceScriptsTest(unittest.TestCase):
             diff = insights["current_funnel_diff"]
             blueprint = (workspace / "final" / "05_funnel_blueprint.md").read_text(encoding="utf-8")
 
-            self.assertEqual(result["phase"], "research")
-            self.assertFalse(result["recommendations_ready"])
+            self.assertEqual(result["phase"], "ready")
+            self.assertTrue(result["ready_to_test"])
+            self.assertFalse(result["ready_for_launch"])
+            self.assertTrue(result["recommendations_ready"])
             self.assertEqual(validate_insights_contract(insights, []), [])
             self.assertEqual(diff["status"], "provided")
             for row in diff["rows"]:
                 self.assertTrue(row["assumption_ids"])
-                self.assertTrue(row["blocked_reason"])
+                self.assertFalse(row["blocked_reason"])
             self.assertIn("manual email follow-up", blueprint)
+            self.assertIn("Visual Funnel Map", blueprint)
             self.assertNotIn('"rows"', blueprint)
             assert_final_pack(workspace)
 
@@ -883,18 +893,23 @@ class WorkspaceScriptsTest(unittest.TestCase):
             screen_specs = (workspace / "final" / "06_screen_specs.md").read_text(encoding="utf-8")
             variant_export = json.loads((workspace / "exports" / "variant_bundles.json").read_text(encoding="utf-8"))
 
-            self.assertEqual(render_result["phase"], "research")
-            self.assertEqual(result["summary"]["phase"], "research")
+            self.assertEqual(render_result["phase"], "ready")
+            self.assertTrue(render_result["ready_to_test"])
+            self.assertEqual(result["summary"]["phase"], "ready")
+            self.assertTrue(result["summary"]["ready_to_test"])
             self.assertFalse(result["ready_for_launch"])
             self.assertEqual(validate_insights_contract(insights, []), [])
             self.assertTrue(variants)
             for variant in variants:
                 self.assertTrue(variant["assumption_ids"])
-                self.assertTrue(variant["blocked_reason"])
+                self.assertEqual(variant["evidence_mode"], "assumption_backed")
+                self.assertFalse(variant["blocked_reason"])
             for item in variant_export["variants"]:
+                self.assertTrue(item["ready_to_test"])
                 self.assertFalse(item["ready"])
                 self.assertTrue(item["assumption_ids"])
-                self.assertTrue(item["blocked_reason"])
+                self.assertFalse(item["blocked_reason"])
+                self.assertTrue(item["launch_blocked_reason"])
             self.assertIn("Variant Bundles", screen_specs)
             self.assertNotIn('"variant_bundles"', screen_specs)
             self.assertNotIn('"blocked_reason"', screen_specs)
@@ -1339,6 +1354,9 @@ class WorkspaceScriptsTest(unittest.TestCase):
             self.assertNotIn("+5-15%", experiment["expected_effect_range"])
             self.assertIn("Do not claim statistical lift", page)
             self.assertIn("guarded rollout", page)
+            self.assertIn("Learning plan", page)
+            self.assertNotIn("SRM check", page)
+            self.assertNotIn("Event loss", page)
 
     def test_experiment_contract_requires_measurable_event_and_quality_gates(self) -> None:
         source_rows = [
@@ -1557,7 +1575,7 @@ class WorkspaceScriptsTest(unittest.TestCase):
         self.assertLess(quality["score"], 60)
         self.assertIn("contract errors block ready state", " ".join(quality["blockers"]))
 
-    def test_assumption_fallback_supports_draft_but_not_ready(self) -> None:
+    def test_assumption_fallback_supports_ready_to_test_but_not_launch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp) / "draft-contract"
             run_script("create_workspace.py", "--name", "Draft contract", "--out", str(workspace), "--json")
@@ -1578,13 +1596,16 @@ class WorkspaceScriptsTest(unittest.TestCase):
             insights = json.loads((workspace / "runtime" / "insights.json").read_text(encoding="utf-8"))
 
             self.assertTrue(result["summary"]["minimum_gate_satisfied"])
-            self.assertEqual(result["summary"]["phase"], "research")
-            self.assertFalse(result["summary"]["recommendations_ready"])
+            self.assertEqual(result["summary"]["phase"], "ready")
+            self.assertTrue(result["summary"]["ready_to_test"])
+            self.assertTrue(result["summary"]["recommendations_ready"])
+            self.assertFalse(result["summary"]["ready_for_launch"])
             self.assertEqual(validate_insights_contract(insights, []), [])
             for recommendation in insights["screens"] + insights["experiments"]:
                 self.assertEqual(recommendation["source_ids"], [])
                 self.assertTrue(recommendation["assumption_ids"])
-                self.assertTrue(recommendation["blocked_reason"])
+                self.assertEqual(recommendation["evidence_mode"], "assumption_backed")
+                self.assertFalse(recommendation["blocked_reason"])
 
     def test_low_confidence_claims_do_not_make_recommendations_ready(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -1711,13 +1732,21 @@ class WorkspaceScriptsTest(unittest.TestCase):
                 ),
             )
             result = run_script("render_final.py", str(workspace), "--json")
+            insights = json.loads((workspace / "runtime" / "insights.json").read_text(encoding="utf-8"))
+            html = (workspace / "final" / "05_funnel_blueprint.html").read_text(encoding="utf-8")
 
             self.assertTrue(result["minimum_gate_satisfied"])
-            self.assertEqual(result["phase"], "research")
-            self.assertFalse(result["recommendations_ready"])
+            self.assertEqual(result["phase"], "ready")
+            self.assertTrue(result["ready_to_test"])
+            self.assertFalse(result["ready_for_launch"])
+            self.assertTrue(result["recommendations_ready"])
             self.assertLessEqual(len(result["next_best_input"]), 2)
+            self.assertTrue(insights["benchmark_assumptions"])
+            self.assertEqual(insights["benchmark_assumptions"][0]["assumption_type"], "benchmark_assumption")
+            self.assertIn("funnel-visual", html)
+            self.assertIn("assumption-backed", html)
 
-    def test_promise_proof_model_blocks_no_proof_ready_state(self) -> None:
+    def test_promise_proof_model_keeps_no_proof_launch_blocker(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp) / "no-proof-with-sources"
             seed_promise_workspace(
@@ -1730,13 +1759,16 @@ class WorkspaceScriptsTest(unittest.TestCase):
             insights = json.loads((workspace / "runtime" / "insights.json").read_text(encoding="utf-8"))
             model = insights["promise_proof_model"][0]
 
-            self.assertEqual(result["phase"], "research")
-            self.assertFalse(result["recommendations_ready"])
+            self.assertEqual(result["phase"], "ready")
+            self.assertTrue(result["ready_to_test"])
+            self.assertFalse(result["ready_for_launch"])
+            self.assertTrue(result["recommendations_ready"])
             self.assertEqual(model["evidence_status"], "no_proof")
             self.assertTrue(model["assumption_ids"])
             self.assertIn("result promise has no proof yet", model["blocked_reason"])
             for recommendation in insights["screens"] + insights["experiments"]:
-                self.assertIn("result promise has no proof yet", recommendation["blocked_reason"])
+                self.assertFalse(recommendation["blocked_reason"])
+                self.assertIn("A3", recommendation["assumption_ids"])
 
     def test_proof_mechanics_guidance_does_not_unblock_missing_proof(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -1752,8 +1784,10 @@ class WorkspaceScriptsTest(unittest.TestCase):
             model = insights["promise_proof_model"][0]
             mechanic = model["recommended_proof_mechanic"]
 
-            self.assertEqual(result["phase"], "research")
-            self.assertFalse(result["recommendations_ready"])
+            self.assertEqual(result["phase"], "ready")
+            self.assertTrue(result["ready_to_test"])
+            self.assertFalse(result["ready_for_launch"])
+            self.assertTrue(result["recommendations_ready"])
             self.assertEqual(model["evidence_status"], "no_proof")
             self.assertEqual(mechanic["claim_type"], "performance_outcome")
             self.assertEqual(mechanic["sales_motion"], "self_serve")
@@ -1762,10 +1796,11 @@ class WorkspaceScriptsTest(unittest.TestCase):
             self.assertIn("Recommended proof format", model["proof_requirement"])
             self.assertIn("guidance only", mechanic["note"])
             for recommendation in insights["screens"] + insights["experiments"]:
-                self.assertTrue(recommendation["blocked_reason"])
+                self.assertFalse(recommendation["blocked_reason"])
+                self.assertIn("A3", recommendation["assumption_ids"])
             self.assertTrue(any("Recommended proof format" in screen["proof_needed"] for screen in insights["screens"]))
 
-    def test_promise_proof_model_blocks_weak_proof(self) -> None:
+    def test_promise_proof_model_keeps_weak_proof_launch_blocker(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp) / "weak-proof"
             seed_promise_workspace(
@@ -1787,8 +1822,10 @@ class WorkspaceScriptsTest(unittest.TestCase):
             insights = json.loads((workspace / "runtime" / "insights.json").read_text(encoding="utf-8"))
             model = insights["promise_proof_model"][0]
 
-            self.assertEqual(result["phase"], "research")
-            self.assertFalse(result["recommendations_ready"])
+            self.assertEqual(result["phase"], "ready")
+            self.assertTrue(result["ready_to_test"])
+            self.assertFalse(result["ready_for_launch"])
+            self.assertTrue(result["recommendations_ready"])
             self.assertEqual(model["evidence_status"], "weak_proof")
             self.assertEqual(model["source_ids"], ["source-1"])
             self.assertIn("proof is weak", model["blocked_reason"])
@@ -1982,8 +2019,10 @@ class WorkspaceScriptsTest(unittest.TestCase):
             result = run_script("render_final.py", str(workspace), "--json")
 
             self.assertTrue(result["minimum_gate_satisfied"])
-            self.assertEqual(result["phase"], "research")
-            self.assertFalse(result["recommendations_ready"])
+            self.assertEqual(result["phase"], "ready")
+            self.assertTrue(result["ready_to_test"])
+            self.assertFalse(result["ready_for_launch"])
+            self.assertTrue(result["recommendations_ready"])
             self.assertIn("карта конкурентов содержит меньше 3 конкурентов", result["evidence_gaps"])
 
             index = (workspace / "final" / "00_index.md").read_text(encoding="utf-8")
@@ -1998,6 +2037,7 @@ class WorkspaceScriptsTest(unittest.TestCase):
             self.assertIn("Что получишь", index)
             self.assertIn("Пайплайн запуска", execution)
             self.assertIn("Действие пользователя", blueprint)
+            self.assertIn("Визуальная карта пути", blueprint)
             self.assertIn("Контрольный риск", tracking)
             self.assertIn("Пайплайн запуска", html_index)
             final_index_path = workspace.resolve() / "final" / "index.html"

@@ -9,10 +9,11 @@ Use this when rendering or reviewing `final/`.
 - Every Markdown file has a matching HTML page.
 - Markdown does not start with YAML frontmatter.
 - HTML is self-contained with inline CSS, semantic structure, navigation, and next/previous links.
-- Pages separate ready recommendations from blocked assumptions.
+- Pages separate ready-to-test recommendations from launch blockers.
 - Evidence and competitor claims cite source rows by URL or title when available.
 - Niche profiles render as readable vocabulary, risks, proof formats, funnel defaults, and event suggestions, not raw `niche_profile` JSON.
 - Current-vs-proposed funnel changes render as a readable table, not raw `current_funnel_diff` JSON; missing current funnel is shown as an assumption, not invented current steps.
+- Funnel visual maps render from `funnel_visual` as a readable visual path; assumption-backed nodes are highlighted in yellow.
 - Copy/action variant bundles render as a readable table with hypothesis, event, proof requirement, and support refs, not raw `variant_bundles` JSON.
 - Reviewer approval renders as status plus review items, not raw `reviewer_approval` JSON; approval handoff files belong in `exports/`.
 - Orchestration/task-result contracts stay in `runtime/orchestration_contract.json` or `exports/orchestration_contract.*`, not `final/`.
@@ -59,10 +60,11 @@ Keep legacy filenames for compatibility, but render them in a user-first order:
 ## Review Checklist
 
 - No raw runtime files leaked.
-- Missing proof stays marked as missing.
+- Missing proof can be ready to test only when visibly assumption-backed; it must stay blocked for launch handoff.
 - Current-sensitive claims have retrieval dates.
 - The next step is operational, not a broad brainstorm.
-- `recommendations_ready` is true only when `phase == "ready"`.
+- `recommendations_ready` and `ready_to_test` are true only when `phase == "ready"`.
+- `ready_for_launch` is true only when evidence, proof, approval, and row-level launch blockers are clear.
 - Russian output does not keep English UI strings such as "Intake brief", "Research evidence", "Previous", or "Next".
 - Russian output explains the launch pipeline in plain language: "что сделать", "зачем", and "что получишь".
 - Final handoff is not just a raw path or shell command; it includes a clickable local-file Markdown link to `final/index.html`.

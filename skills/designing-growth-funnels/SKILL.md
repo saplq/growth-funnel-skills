@@ -34,7 +34,7 @@ Use these principles while synthesizing:
 2. Infer the user's conversation language and pass it as `--language`.
 3. Ingest pasted notes, documents, metrics, research, competitor observations, or specialist outputs into `runtime/`.
 4. Validate after every meaningful update.
-5. Run live research for current-sensitive claims when host web, browser, MCP, analytics, CRM, or file tools are available. Use bundled collectors only for best-effort public web and competitor discovery; otherwise use host tools and record normalized source rows. If no live research path exists, keep the pack in draft and expose the gap.
+5. Run live research for current-sensitive claims when host web, browser, MCP, analytics, CRM, or file tools are available. Use bundled collectors only for best-effort public web and competitor discovery; otherwise use host tools and record normalized source rows. If no live research path exists, the pack may still be ready to test when every recommendation is explicitly assumption-backed and launch blockers stay visible.
 6. Compile `runtime/insights.json` before rendering. Every recommendation must point to evidence or an explicit assumption.
 7. Render `final/` only after validation, even if some recommendations stay blocked.
 8. Finish the chat response with the clickable main HTML link first, then scores, blockers, and the next smallest useful input. Use `final_index_chat_link` from `render_final.py` when available. If building the link manually, use Markdown with an absolute local path: `[Открыть финальный HTML](/absolute/path/final/index.html)` or `[Open final HTML](/absolute/path/final/index.html)`. If the path contains spaces, wrap only the link target in angle brackets. Do not use `file://`, a code block, or an `open ...` command as the primary way to open the report. Mention changed runtime files only when useful for debugging.
@@ -61,7 +61,7 @@ The workspace has two layers:
 
 Do not put YAML, CSV, JSON, JSONL, traces, or separate CSS files in `final/`.
 Specialist/task traceability belongs in `runtime/orchestration_contract.json`; if exported, the machine-readable handoff belongs in `exports/orchestration_contract.*`, not `final/`.
-Do not mark launch exports ready unless `phase == "ready"` and row-level `blocked_reason` is empty. Draft or research exports must keep `claim_ids`, `source_ids`, `assumption_ids`, and `blocked_reason` visible.
+Do not mark launch exports ready unless `ready_for_launch == true`, row-level `ready == true`, and row-level `launch_blocked_reason` is empty. Assumption-backed rows may be `ready_to_test`, but must keep `claim_ids`, `source_ids`, `assumption_ids`, `blocked_reason`, and `launch_blocked_reason` visible in exports.
 Copy, action, route, proof-placement, and qualification variants belong in `runtime/insights.json` as `variant_bundles`; if exported, their machine-readable handoff belongs in `exports/variant_bundles.*`, not `final/`.
 Reviewer approval belongs in `runtime/insights.json` as `reviewer_approval`; if exported, the machine-readable handoff belongs in `exports/reviewer_approval.*`, not `final/`.
 
@@ -99,15 +99,20 @@ Do not present final funnel recommendations as ready until these are present:
 - primary channel;
 - proof assets or explicit `no proof yet`.
 
-If the gate is incomplete, create the workspace, mark blocked items, and ask at most 3 short questions.
+If the gate is incomplete, create the workspace, mark blocked items, store up to 3 prioritized questions in `next_best_input`, and ask the user only the single highest-impact question in chat.
 
 After the gate is complete, ask at most 2 topic-specific clarify questions only when they can materially improve the decision. Prefer questions about priority segment, current weak screen or bot step, main objection, first-value moment, proof gap, or experiment owner.
 
-Recommendations are only ready when the minimum gate is satisfied, research readiness is sufficient, the competitor map has at least 3 sourced competitors, and contradictions are resolved. A polished final pack may still be a draft; do not describe it as ready when `phase` is not `ready`.
+Use two levels of readiness:
 
-Proof mechanics are recommendation guidance only. They can suggest a proof format by claim type, sales motion, and risk level, but they are not evidence and must not turn `no_proof`, `weak_proof`, or `risky_unverified` into ready state.
-Variant bundles must inherit proof blockers and source/assumption coverage from the screen, experiment, and promise-proof contracts. Do not create a "ready" copy or CTA variant from weak proof.
-High-risk commercial, legal, financial, guarantee, or otherwise sensitive promises require explicit human approval before `phase=ready`, even when evidence is source-backed. Approval does not override weak or missing evidence.
+- `phase=ready` / `ready_to_test=true`: the funnel is ready for a strategic test. This can be source-backed or assumption-backed, but assumptions must be explicit and visible.
+- `ready_for_launch=true`: the machine-readable launch handoff is safe to use. This requires no missing proof, no weak proof, no unresolved high-risk approval, no evidence gaps, and no row-level `launch_blocked_reason`.
+
+For low/medium-risk promises, `no_proof` and `weak_proof` can still produce a ready-to-test funnel when each recommendation carries `assumption_ids`, `evidence_mode=assumption_backed`, and an honest proof fallback. Do not present those rows as launch-ready.
+
+Proof mechanics are recommendation guidance only. They can suggest a proof format by claim type, sales motion, and risk level, but they are not evidence and must not turn `no_proof` or `weak_proof` into `ready_for_launch`.
+Variant bundles must inherit source/assumption coverage from the screen, experiment, and promise-proof contracts. They may be ready to test with assumptions, but their launch exports must remain blocked until proof is strong enough.
+High-risk commercial, legal, financial, guarantee, or otherwise sensitive promises require source-backed proof and explicit human approval before `phase=ready`. Approval does not override weak or missing evidence.
 
 ## Research Rules
 
@@ -123,16 +128,13 @@ Do not let source formatting substitute for insight quality. The final package s
 
 ## Optional Orchestration
 
-Use subagents only when the user explicitly asks for parallel agent work or when your environment policy allows it. Keep roles bounded:
+Use subagents only when the user explicitly asks for parallel agent work or when your environment policy allows it. Prefer 3 compact roles:
 
-- `intake`: normalize context and missing fields.
-- `planner`: split topics and tasks.
-- `research`: gather current practices and source evidence.
-- `competitor`: gather competitor pricing, positioning, CTA, onboarding, proof, and first-value paths.
-- `synthesis`: draft recommendations from normalized state.
-- `compiler_reviewer`: render and check final leakage, citations, and blocked claims.
+- `intake_research`: normalize context, missing fields, sources, competitor observations, metrics, and constraints.
+- `synthesis`: compile recommendations, assumptions, variants, tracking, and readiness.
+- `review_render`: check blockers, render `final/`, and verify no raw runtime leakage.
 
-If subagents are unavailable, perform the same roles sequentially.
+Older roles (`intake`, `planner`, `research`, `competitor`, `compiler_reviewer`) are compatibility aliases. Do not run all six sequentially unless the host or user explicitly requires that trace shape.
 
 ## Reference Loading
 
@@ -141,6 +143,7 @@ Load only what is needed:
 - `references/intake-and-qualification.md`: missing fields, scoring, and next questions.
 - `references/research-and-provenance.md`: source quality, freshness, and citation handling.
 - `references/live-research.md`: live search protocol, source weighting, and rejection rules.
+- `references/cold-start-benchmarks.md`: assumption-only benchmark priors for projects with no owned metrics.
 - `references/orchestration.md`: specialist task and result contracts.
 - `references/funnel-blueprint.md`: segmentation, skeleton choice, screen specs.
 - `references/tracking-experiments-retention.md`: events, KPI contracts, experiments, retention, postmortems.
