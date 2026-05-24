@@ -1013,6 +1013,123 @@ Research notes:
 """
 
 
+def questionnaire_answer_block(language: str) -> str:
+    ru = is_russian(language)
+    if ru:
+        return """## Быстрый ответ по номерам
+
+Заполните прямо после номера. Если времени мало, заполните только 1-6. Если чего-то нет, пишите `нет данных` или `пока нет`.
+
+1.
+2.
+3.
+4.
+5.
+6.
+7.
+8.
+9.
+10.
+11.
+12.
+13.
+14.
+15.
+16.
+17.
+18.
+19.
+20.
+
+## Что означает каждый номер
+
+### A. Минимум для старта
+
+1. Что продаем? Продукт/услуга в 1-3 предложениях.
+2. Кому продаем? Роль, ниша, гео, размер бизнеса/бюджет, если важно.
+3. Какой результат обещаем клиенту?
+4. Какая главная метрика на ближайший этап?
+5. Откуда будет идти трафик или лиды?
+6. Какие доказательства уже есть? Если нет, напишите `доказательств пока нет`.
+
+### B. Чтобы сделать воронку точнее
+
+7. Как сейчас выглядит путь пользователя?
+8. На каком шаге сейчас самая большая проблема?
+9. Что пользователь должен сделать как целевое действие?
+10. Какой главный страх или возражение перед этим действием?
+11. Что пользователь считает первой пользой и через сколько времени получает ее?
+12. Есть ли цена, тарифы или пакеты?
+13. Какой sales motion: self-serve, консультация, созвон, менеджер, demo call, бот, подписка?
+14. Какие ограничения есть?
+15. Какие конкуренты или аналоги важны? Дайте 3-5 ссылок или названий.
+
+### C. Метрики и запуск
+
+16. Какие текущие цифры есть?
+17. Какой срок теста?
+18. Кто будет внедрять изменения и сколько есть времени в неделю?
+19. Что нельзя обещать юридически, этически или репутационно?
+20. Есть ли retention-задача?
+"""
+    return """## Quick Numbered Reply
+
+Fill directly after each number. If time is limited, fill only 1-6. If something is unknown, write `no data` or `not yet`.
+
+1.
+2.
+3.
+4.
+5.
+6.
+7.
+8.
+9.
+10.
+11.
+12.
+13.
+14.
+15.
+16.
+17.
+18.
+19.
+20.
+
+## What Each Number Means
+
+### A. Minimum To Start
+
+1. What are we selling? Product/service in 1-3 sentences.
+2. Who are we selling to? Role, niche, geo, company size/budget if relevant.
+3. What result do we promise the customer?
+4. What is the main metric for the next stage?
+5. Where will traffic or leads come from?
+6. What proof exists? If none, write `no proof yet`.
+
+### B. To Make The Funnel Sharper
+
+7. What does the current user path look like?
+8. Which step is the biggest problem now?
+9. What target action should the user take?
+10. What is the main fear or objection before that action?
+11. What is the first value moment and how long does it take?
+12. Do pricing, plans, or packages exist?
+13. What is the sales motion: self-serve, consultation, call, manager, demo call, bot, subscription?
+14. What constraints exist?
+15. Which competitors or alternatives matter? Add 3-5 links or names.
+
+### C. Metrics And Launch
+
+16. What current numbers exist?
+17. What is the test window?
+18. Who will implement changes and how much time is available weekly?
+19. What must not be promised legally, ethically, or reputationally?
+20. Is there a retention goal?
+"""
+
+
 def next_input_template(data: dict[str, Any], missing: list[str] | None = None, questions: list[str] | None = None) -> str:
     language = output_language(data)
     ru = is_russian(language)
@@ -1038,6 +1155,8 @@ def next_input_template(data: dict[str, Any], missing: list[str] | None = None, 
 
 {question_lines}
 
+{questionnaire_answer_block(language)}
+
 ## Куда писать
 
 - Минимум для старта: `01_minimum_brief.md`
@@ -1062,6 +1181,8 @@ Minimum gate status: {"complete" if gate else "incomplete"}
 ## Single Best Next Question
 
 {question_lines}
+
+{questionnaire_answer_block(language)}
 
 ## Where To Write
 

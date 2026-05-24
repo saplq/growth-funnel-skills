@@ -381,6 +381,9 @@ class WorkspaceScriptsTest(unittest.TestCase):
             next_input = (workspace / "user_inputs" / "00_next_input.md").read_text(encoding="utf-8")
             minimum_brief = (workspace / "user_inputs" / "01_minimum_brief.md").read_text(encoding="utf-8")
             self.assertIn("offer and promised result", next_input)
+            self.assertIn("Quick Numbered Reply", next_input)
+            self.assertIn("1.", next_input)
+            self.assertIn("20.", next_input)
             self.assertIn("Offer:", minimum_brief)
 
     def test_blank_input_templates_do_not_create_false_proof(self) -> None:
@@ -435,6 +438,61 @@ class WorkspaceScriptsTest(unittest.TestCase):
             self.assertIn("primary_channel", result["changed"]["intake"])
             self.assertIn("target_kpi", result["summary"]["critical_missing_fields"])
             self.assertFalse(result["summary"]["minimum_gate_satisfied"])
+
+    def test_numbered_questionnaire_answers_update_intake(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "numbered"
+            run_script("create_workspace.py", "--name", "Numbered", "--out", str(workspace), "--language", "Russian", "--json")
+            result = run_script(
+                "ingest_notes.py",
+                str(workspace),
+                "--input",
+                "-",
+                "--kind",
+                "notes",
+                "--json",
+                input_text=(
+                    "1. AI CRM cleanup для маркетинговых агентств\n"
+                    "2. Владельцы агентств 10-50 сотрудников, EU/US\n"
+                    "3. Убрать дубли и вернуть контроль над pipeline\n"
+                    "4. Доля лидов с заполненным следующим шагом\n"
+                    "5. Cold outbound и LinkedIn\n"
+                    "6. доказательств пока нет\n"
+                    "7. outbound -> landing -> call -> proposal\n"
+                    "8. Мало людей доходит до call\n"
+                    "9. Записаться на аудит\n"
+                    "10. Боятся дать доступ к CRM\n"
+                    "11. Первый список дублей через 15 минут\n"
+                    "12. $900 setup + monthly support\n"
+                    "13. консультация и demo call\n"
+                    "14. нет разработчика, нельзя менять CRM\n"
+                    "15. Clay https://clay.com; Attio https://attio.com\n"
+                    "16. 500 outbound emails, 2% booked calls\n"
+                    "17. 14 дней\n"
+                    "18. founder, 5 часов в неделю\n"
+                    "19. нельзя обещать гарантированный рост выручки\n"
+                    "20. вернуть в повторный аудит через 30 дней\n"
+                ),
+            )
+
+            intake = json.loads((workspace / "runtime" / "intake.json").read_text(encoding="utf-8"))
+            competitors = (workspace / "runtime" / "competitors.csv").read_text(encoding="utf-8")
+
+            self.assertTrue(result["summary"]["minimum_gate_satisfied"])
+            self.assertIn("AI CRM cleanup", intake["offer"])
+            self.assertIn("Обещаемый результат", intake["offer"])
+            self.assertEqual(intake["icp"], "Владельцы агентств 10-50 сотрудников, EU/US")
+            self.assertEqual(intake["target_kpi"], "Доля лидов с заполненным следующим шагом")
+            self.assertEqual(intake["primary_channel"], "Cold outbound и LinkedIn")
+            self.assertTrue(intake["explicit_no_proof_yet"])
+            self.assertEqual(intake["current_funnel"], ["outbound", "landing", "call", "proposal"])
+            self.assertEqual(intake["time_to_first_value_minutes"], "15")
+            self.assertEqual(intake["pricing"], "$900 setup + monthly support")
+            self.assertEqual(intake["sales_motion"], "консультация и demo call")
+            self.assertTrue(intake["metrics"])
+            self.assertIn("нельзя обещать гарантированный рост выручки", intake["product_constraints"])
+            self.assertIn("clay.com", competitors)
+            self.assertIn("attio.com", competitors)
 
     def test_no_more_user_data_stops_post_gate_questions(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

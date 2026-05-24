@@ -53,6 +53,8 @@ Every workspace should expose `user_inputs/`:
 
 When the user asks how to start, link to the folder and `00_next_input.md` first. Ingest filled files with `ingest_notes.py` before asking more questions.
 
+`00_next_input.md` should support a numbered reply flow. The user can answer directly in chat with `1. ...`, `2. ...`, etc.; ingestion maps questions 1-6 to the minimum gate and maps optional answers into current funnel, pricing, sales motion, constraints, metrics, implementation bandwidth, and competitor notes.
+
 Before the minimum gate is complete, write up to 3 prioritized questions into `next_best_input`, but ask the user only one question at a time in chat. Choose missing fields by impact:
 
 1. target KPI;

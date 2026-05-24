@@ -108,6 +108,63 @@ LABELS = {
 URL_PATTERN = re.compile(r"https?://[^\s),\]]+", re.IGNORECASE)
 DATE_PATTERN = re.compile(r"\b(20\d{2}-\d{2}-\d{2})\b")
 CURRENT_FUNNEL_KEYS = {"current_funnel"}
+NUMBERED_ANSWER_PATTERN = re.compile(r"^\s*(?:[-*]\s*)?(\d{1,2})[.)]\s+(.+?)\s*$")
+EMPTY_ANSWER_VALUES = {
+    "",
+    "-",
+    "нет",
+    "нет данных",
+    "пока нет",
+    "не знаю",
+    "n/a",
+    "na",
+    "none",
+    "no data",
+    "not yet",
+    "unknown",
+}
+QUESTION_PROMPT_MARKERS = [
+    "что продаем",
+    "кому продаем",
+    "какой результат",
+    "какая главная метрика",
+    "откуда будет",
+    "какие доказательства",
+    "как сейчас выглядит",
+    "на каком шаге",
+    "что пользователь должен",
+    "какой главный страх",
+    "что пользователь считает",
+    "есть ли цена",
+    "какой sales motion",
+    "какие ограничения",
+    "какие конкуренты",
+    "какие текущие цифры",
+    "какой срок теста",
+    "кто будет внедрять",
+    "что нельзя обещать",
+    "есть ли retention",
+    "what are we selling",
+    "who are we selling",
+    "what result",
+    "what is the main metric",
+    "where will traffic",
+    "what proof exists",
+    "what does the current user path",
+    "which step",
+    "what target action",
+    "what is the main fear",
+    "what is the first value",
+    "do pricing",
+    "what is the sales motion",
+    "what constraints",
+    "which competitors",
+    "what current numbers",
+    "what is the test window",
+    "who will implement",
+    "what must not be promised",
+    "is there a retention",
+]
 
 
 def parse_args() -> argparse.Namespace:
@@ -133,6 +190,118 @@ def truthy_text(value: str) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "y", "on", "да", "истина"}
 
 
+def has_value(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, (list, tuple, set, dict)):
+        return bool(value)
+    return bool(str(value).strip())
+
+
+def empty_answer(value: str) -> bool:
+    return normalize_label(value).strip(".") in EMPTY_ANSWER_VALUES
+
+
+def looks_like_question_prompt(value: str) -> bool:
+    lowered = value.strip().lower()
+    return any(marker in lowered for marker in QUESTION_PROMPT_MARKERS)
+
+
+def numbered_answers(text: str) -> dict[int, str]:
+    answers: dict[int, str] = {}
+    for line in text.splitlines():
+        match = NUMBERED_ANSWER_PATTERN.match(line)
+        if not match:
+            continue
+        number = int(match.group(1))
+        value = match.group(2).strip()
+        if number < 1 or number > 20 or empty_answer(value) or looks_like_question_prompt(value):
+            continue
+        answers[number] = value
+    return answers
+
+
+def no_proof_answer(value: str) -> bool:
+    return bool(
+        re.search(r"\b(no proof|no proofs|no case studies|no testimonials|not yet|none)\b", value, re.IGNORECASE)
+        or re.search(r"(нет доказательств|нет кейсов|нет отзывов|пока нет|нет данных)", value, re.IGNORECASE)
+    )
+
+
+def merge_update_value(updates: dict[str, Any], key: str, value: Any) -> None:
+    if not has_value(value):
+        return
+    if key in {"proof_assets", "metrics", "current_funnel"}:
+        existing = updates.get(key) if isinstance(updates.get(key), list) else []
+        items = value if isinstance(value, list) else [value]
+        updates[key] = existing + [item for item in items if has_value(item)]
+        return
+    if not has_value(updates.get(key)):
+        updates[key] = value
+
+
+def parse_numbered_updates(text: str) -> dict[str, Any]:
+    answers = numbered_answers(text)
+    updates: dict[str, Any] = {}
+    if not answers:
+        return updates
+    ru = detect_language(text) == "Russian"
+    constraints: list[str] = []
+
+    offer = answers.get(1, "").strip()
+    promised_result = answers.get(3, "").strip()
+    if offer and promised_result:
+        merge_update_value(updates, "offer", f"{offer}. {'Обещаемый результат' if ru else 'Promised result'}: {promised_result}")
+    elif offer:
+        merge_update_value(updates, "offer", offer)
+    elif promised_result:
+        merge_update_value(updates, "offer", promised_result)
+
+    merge_update_value(updates, "icp", answers.get(2))
+    merge_update_value(updates, "target_kpi", answers.get(4))
+    merge_update_value(updates, "primary_channel", answers.get(5))
+    if has_value(answers.get(6)):
+        if no_proof_answer(answers[6]):
+            updates["explicit_no_proof_yet"] = True
+        else:
+            merge_update_value(updates, "proof_assets", [answers[6]])
+    if has_value(answers.get(7)):
+        merge_update_value(updates, "current_funnel", split_current_funnel_step(answers[7]))
+    if has_value(answers.get(8)):
+        constraints.append(f"{'Самый слабый шаг' if ru else 'Weakest step'}: {answers[8]}")
+    if has_value(answers.get(9)):
+        merge_update_value(updates, "jtbd", f"{'Целевое действие' if ru else 'Target action'}: {answers[9]}")
+    if has_value(answers.get(10)):
+        constraints.append(f"{'Главное возражение' if ru else 'Main objection'}: {answers[10]}")
+    if has_value(answers.get(11)):
+        match = re.search(r"\d+(?:[\.,]\d+)?", answers[11])
+        if match:
+            merge_update_value(updates, "time_to_first_value_minutes", match.group(0).replace(",", "."))
+        else:
+            constraints.append(f"{'Первая польза' if ru else 'First value'}: {answers[11]}")
+    merge_update_value(updates, "pricing", answers.get(12))
+    merge_update_value(updates, "sales_motion", answers.get(13))
+    if has_value(answers.get(14)):
+        constraints.append(f"{'Ограничения' if ru else 'Constraints'}: {answers[14]}")
+    if has_value(answers.get(16)):
+        merge_update_value(
+            updates,
+            "metrics",
+            [{"metric_name": "questionnaire_current_metrics", "value": answers[16], "notes": answers[16]}],
+        )
+    if has_value(answers.get(17)):
+        merge_update_value(updates, "experiment_bandwidth", f"{'Срок теста' if ru else 'Test window'}: {answers[17]}")
+    if has_value(answers.get(18)):
+        merge_update_value(updates, "implementation_bandwidth", answers[18])
+    if has_value(answers.get(19)):
+        constraints.append(f"{'Нельзя обещать' if ru else 'Must not promise'}: {answers[19]}")
+    if has_value(answers.get(20)):
+        constraints.append(f"{'Retention-задача' if ru else 'Retention goal'}: {answers[20]}")
+    if constraints:
+        merge_update_value(updates, "product_constraints", "; ".join(constraints))
+    return updates
+
+
 def parse_labeled_updates(text: str) -> dict[str, Any]:
     updates: dict[str, Any] = {}
     for line in text.splitlines():
@@ -152,6 +321,10 @@ def parse_labeled_updates(text: str) -> dict[str, Any]:
     current_funnel = extract_current_funnel_steps(text)
     if current_funnel:
         updates["current_funnel"] = current_funnel
+    numbered = parse_numbered_updates(text)
+    for key, value in numbered.items():
+        if key not in updates or key in {"proof_assets", "metrics", "current_funnel"}:
+            merge_update_value(updates, key, value)
     return updates
 
 
@@ -357,6 +530,29 @@ def extract_competitors(text: str) -> list[dict[str, str]]:
     return rows
 
 
+def extract_numbered_competitors(text: str) -> list[dict[str, str]]:
+    answer = numbered_answers(text).get(15, "")
+    if not has_value(answer):
+        return []
+    rows: list[dict[str, str]] = []
+    chunks = [chunk.strip() for chunk in re.split(r"[\n;]+|,\s*(?=[A-ZА-ЯЁ0-9a-zа-яё])", answer) if chunk.strip()]
+    for index, chunk in enumerate(chunks, start=1):
+        if empty_answer(chunk):
+            continue
+        urls = URL_PATTERN.findall(chunk)
+        source = urls[0].rstrip(".,;)") if urls else ""
+        competitor = chunk
+        for url in urls:
+            competitor = competitor.replace(url, "")
+        competitor = competitor.strip(" -|,")
+        if not competitor and source:
+            competitor = re.sub(r"^www\.", "", re.sub(r"^https?://", "", source)).split("/", 1)[0]
+        if not competitor:
+            competitor = f"competitor-{index}"
+        rows.append(normalize_competitor({"competitor": competitor, "source": source, "notes": chunk}))
+    return rows
+
+
 def main() -> int:
     args = parse_args()
     workspace = Path(args.workspace_dir).expanduser().resolve()
@@ -401,7 +597,7 @@ def main() -> int:
                 )
 
         if args.kind in {"notes", "competitor"}:
-            competitors = extract_competitors(text)
+            competitors = extract_competitors(text) + extract_numbered_competitors(text)
             if competitors:
                 changed["competitor_rows_added"] = append_csv_unique(
                     runtime_path(workspace, "competitors.csv"),

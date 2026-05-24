@@ -277,6 +277,8 @@ user_inputs/
 └── 04_competitors_research.md
 ```
 
+`00_next_input.md` supports a simple numbered reply. Users can answer `1. ...` through `6. ...` for the minimum gate, then optionally continue through `20. ...` for funnel details, metrics, constraints, and competitors.
+
 The final pack contains:
 
 ```text

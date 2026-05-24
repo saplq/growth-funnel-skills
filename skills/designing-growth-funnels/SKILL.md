@@ -101,7 +101,7 @@ Do not present final funnel recommendations as ready until these are present:
 - primary channel;
 - proof assets or explicit `no proof yet`.
 
-If the gate is incomplete, create the workspace, mark blocked items, store up to 3 prioritized questions in `next_best_input`, and ask the user only the single highest-impact question in chat.
+If the gate is incomplete and the user has provided little or no context, create the workspace, link to `user_inputs/00_next_input.md`, and show the quick numbered questionnaire. Tell the user they can answer only questions 1-6 for a fast start, or answer by numbers directly in chat. If partial context already exists, mark blocked items, store up to 3 prioritized questions in `next_best_input`, and ask the user only the single highest-impact missing question.
 
 After the gate is complete, ask at most 2 topic-specific clarify questions only when they can materially improve the decision. Prefer questions about priority segment, current weak screen or bot step, main objection, first-value moment, proof gap, or experiment owner. If the user says there is no more data, do not keep interviewing after the minimum gate is satisfied; set `no_more_user_data=true`, use explicit assumptions, and keep launch blockers visible.
 
