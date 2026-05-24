@@ -76,6 +76,38 @@ CTA_PATTERNS = [
     "View demo",
     "Contact sales",
     "Sign up",
+    "Kontakt",
+    "Skontaktuj",
+    "Zapytaj",
+    "Wyślij",
+    "Umów",
+    "Umów spotkanie",
+    "Sprawdź",
+    "Zobacz",
+    "Zobacz ofertę",
+    "Pobierz",
+    "Получить",
+    "Оставить заявку",
+    "Связаться",
+    "Записаться",
+]
+
+REAL_ESTATE_HINTS = [
+    "real estate",
+    "property",
+    "apartment",
+    "apartments",
+    "developer",
+    "deweloper",
+    "mieszkan",
+    "nieruchomo",
+    "новостро",
+    "застройщик",
+    "квартир",
+    "ипотек",
+    "варшав",
+    "warsaw",
+    "warszawa",
 ]
 
 
@@ -144,6 +176,16 @@ def build_queries(intake: dict[str, Any], seeds: list[str], explicit_queries: li
         base = " ".join(part for part in [offer, audience, sales_motion] if part)
         items.append({"query": compact(f"{base} competitors pricing official", 180), "seed": ""})
         items.append({"query": compact(f"{offer} alternatives official pricing", 160), "seed": ""})
+    detection_text = " ".join([offer, audience, sales_motion, compact(intake.get("primary_channel"), 80)]).lower()
+    if any(hint in detection_text for hint in REAL_ESTATE_HINTS):
+        items.extend(
+            [
+                {"query": "Warszawa nowe mieszkania deweloper kontakt inwestycje", "seed": ""},
+                {"query": "Warszawa mieszkania od dewelopera inwestycje kontakt", "seed": ""},
+                {"query": "агентство недвижимости Варшава новостройки консультация", "seed": ""},
+                {"query": "Telegram новостройки Варшава квартиры канал", "seed": ""},
+            ]
+        )
 
     seen: set[str] = set()
     deduped: list[dict[str, str]] = []
@@ -258,8 +300,8 @@ def extract_pricing(text: str) -> str:
     if price:
         return compact(price.group(1), 60)
     lowered = text.lower()
-    if any(token in lowered for token in ["pricing", "plans", "free trial", "paid plan", "custom pricing"]):
-        return "pricing page observed"
+    if any(token in lowered for token in ["pricing", "plans", "free trial", "paid plan", "custom pricing", "cena", "ceny", "price", "koszt", "od zł", "pln", "zł"]):
+        return "pricing or price cue observed"
     return ""
 
 
@@ -285,6 +327,12 @@ def extract_onboarding(text: str) -> str:
         return "sample workspace or sample data"
     if "book a demo" in lowered or "request a demo" in lowered or "contact sales" in lowered:
         return "sales-assisted demo"
+    if any(token in lowered for token in ["formularz kontaktowy", "skontaktuj", "zapytaj", "umów", "kontakt"]):
+        return "contact form or advisor call"
+    if any(token in lowered for token in ["wyszukiwarka", "filtr", "dzielnica", "metraż", "liczba pokoi"]):
+        return "search/filter by district, area, rooms"
+    if any(token in lowered for token in ["whatsapp", "telegram", "messenger"]):
+        return "messenger contact"
     if "sign up" in lowered or "start free" in lowered or "free trial" in lowered:
         return "self-serve signup"
     return ""
@@ -311,6 +359,10 @@ def extract_first_value(text: str) -> str:
         return "diagnosis or score"
     if "roadmap" in lowered or "recommendation" in lowered:
         return "roadmap or recommendations"
+    if any(token in lowered for token in ["mapa", "district", "dzielnica", "lokalizacja", "район", "карта"]):
+        return "district or map orientation"
+    if any(token in lowered for token in ["inwestycje", "mieszkania", "apartments", "новостро", "квартир"]):
+        return "new-build listings or project list"
     return ""
 
 

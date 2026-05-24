@@ -29,6 +29,8 @@ Minimum launch-ready evidence:
 - every segment, screen, and experiment points to an evidence ref or explicit assumption.
 - every competitor row has source, retrieval date, and at least one observed field such as positioning, pricing, CTA, onboarding, proof, or first-value path.
 
+User-provided competitor categories or archetypes without a URL are useful context, but they do not count toward the 3 competitor rows and must not drive competitor pattern synthesis.
+
 Ready-to-test evidence can be weaker when the project is in cold start. In that case, use `assumption_ids`, `evidence_mode=assumption_backed`, and `launch_blocked_reason`; do not set launch rows `ready=true`.
 
 ## Source Weight

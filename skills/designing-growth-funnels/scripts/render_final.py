@@ -37,6 +37,7 @@ from workspace_lib import (
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Render clean Markdown and HTML pages into final/.")
     parser.add_argument("workspace_dir", help="Workspace directory to render.")
+    parser.add_argument("--multi-page", action="store_true", help="Render legacy multi-page HTML/Markdown output instead of the default single self-contained artifact.")
     parser.add_argument("--json", action="store_true", help="Print JSON summary. Accepted for compatibility; JSON is always printed.")
     return parser.parse_args()
 
@@ -82,6 +83,16 @@ def reviewer_support_refs(row: dict[str, Any]) -> str:
     )
 
 
+def reviewer_type_label(value: Any, ru: bool) -> str:
+    text = str(value or "")
+    if not ru:
+        return text or "-"
+    return {
+        "high_risk_promise": "рискованное обещание",
+        "under_supported_recommendation": "слабо подтвержденная рекомендация",
+    }.get(text, text.replace("_", " ") or "не указано")
+
+
 def reviewer_item_table(rows: list[dict[str, Any]], ru: bool) -> str:
     headers = ("Что проверить", "Объект", "Риск", "Причина", "На чем основано") if ru else ("Review item", "Target", "Risk", "Reason", "Support")
     if not rows:
@@ -89,7 +100,7 @@ def reviewer_item_table(rows: list[dict[str, Any]], ru: bool) -> str:
         return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} |\n| --- | --- | --- | --- | --- |\n| {empty} | - | - | - | - |"
     body = "\n".join(
         (
-            f"| {table_cell(row.get('review_type'), ru)} | {table_cell(row.get('target_id'), ru)} | "
+            f"| {table_cell(reviewer_type_label(row.get('review_type'), ru), ru)} | {table_cell(row.get('target_id'), ru)} | "
             f"{table_cell(row.get('risk_level'), ru)} | {table_cell(row.get('reason'), ru)} | "
             f"{table_cell(reviewer_support_refs(row), ru)} |"
         )
@@ -250,6 +261,54 @@ def pipeline_table(data: dict[str, Any], ru: bool) -> str:
     return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} |\n| --- | --- | --- | --- |\n{body}"
 
 
+def research_status_block(data: dict[str, Any], ru: bool) -> str:
+    item = insights(data)
+    status = item.get("research_status") if isinstance(item.get("research_status"), dict) else {}
+    if not status:
+        return ""
+    message = dash(status.get("message"), ru)
+    if str(status.get("status") or "") == "source_backed":
+        label = "Исследование" if ru else "Research"
+    elif str(status.get("status") or "") == "research_missing":
+        label = "Исследование не проведено" if ru else "Research Missing"
+    else:
+        label = "Исследование неполное" if ru else "Partial Research"
+    return (
+        f"> **{label}:** {message} "
+        f"({'источников' if ru else 'sources'}: {status.get('source_count', 0)}/{status.get('required_source_count', 3)}, "
+        f"{'проверенных конкурентов' if ru else 'sourced competitors'}: {status.get('sourced_competitor_count', 0)}/{status.get('required_competitor_count', 3)})."
+    )
+
+
+def baseline_metrics_table(data: dict[str, Any], ru: bool) -> str:
+    item = insights(data)
+    baseline = item.get("baseline_metrics") if isinstance(item.get("baseline_metrics"), dict) else {}
+    rows = baseline.get("rows") if isinstance(baseline.get("rows"), list) else []
+    if not rows:
+        return "- " + dash(baseline.get("priority"), ru)
+    headers = ("Метрика", "Расчет", "Комментарий") if ru else ("Metric", "Estimate", "Note")
+    body = "\n".join(
+        f"| {table_cell(row.get('metric'), ru)} | {table_cell(row.get('value'), ru)} | {table_cell(row.get('note'), ru)} |"
+        for row in rows
+        if isinstance(row, dict)
+    )
+    priority = dash(baseline.get("priority"), ru)
+    return f"{'**Вывод:**' if ru else '**Takeaway:**'} {priority}\n\n| {headers[0]} | {headers[1]} | {headers[2]} |\n| --- | --- | --- |\n{body}"
+
+
+def proof_assets_list(values: Any, fallback: str, ru: bool) -> str:
+    if not values:
+        return f"- {fallback}"
+    cleaned = []
+    for value in values if isinstance(values, list) else [values]:
+        text = dash(value, ru)
+        if ru:
+            text = re.sub(r"^\s*Proof\s*:\s*", "Доказательство: ", text, flags=re.IGNORECASE)
+            text = re.sub(r"^\s*Weak proof\s*:\s*", "Слабое доказательство: ", text, flags=re.IGNORECASE)
+        cleaned.append(text)
+    return "\n".join(f"- {item}" for item in cleaned)
+
+
 def markdown_file_link(path: Path, label: str) -> str:
     target = str(path)
     if re.search(r"[\s()]", target):
@@ -280,6 +339,23 @@ def nav_titles(data: dict[str, Any]) -> list[tuple[str, str]]:
     return [(slug, topic_titles.get(mapping.get(slug, ""), title)) for slug, title in FINAL_PAGES]
 
 
+def single_artifact_anchor(slug: str) -> str:
+    anchors = {
+        "00_index": "start",
+        "01_status_next_steps": "decision-summary",
+        "02_intake_brief": "segments",
+        "03_research_evidence": "research-evidence",
+        "04_competitor_map": "competitor-map",
+        "05_funnel_blueprint": "funnel-map",
+        "06_screen_specs": "screen-specs",
+        "07_tracking_plan": "tracking-plan",
+        "08_experiment_card": "experiment-card",
+        "09_risks_and_gaps": "risks-gaps",
+        "10_execution_plan": "execution-plan",
+    }
+    return anchors.get(slug, re.sub(r"[^a-z0-9-]+", "-", slug.lower()).strip("-") or "section")
+
+
 def insights(data: dict[str, Any]) -> dict[str, Any]:
     item = data.get("insights")
     return item if isinstance(item, dict) else {}
@@ -301,6 +377,8 @@ def render_index(data: dict[str, Any]) -> str:
 - Рекомендация: {dash(summary.get('recommendation'), ru)}
 - Главная метрика: {dash(summary.get('target_kpi'), ru)}
 - Уверенность: {confidence_label(str(item.get('confidence')), ru)}
+
+{research_status_block(data, ru)}
 
 ## Пайплайн запуска
 
@@ -330,6 +408,8 @@ def render_index(data: dict[str, Any]) -> str:
 - Recommendation: {dash(summary.get('recommendation'))}
 - Primary KPI: {dash(summary.get('target_kpi'))}
 - Confidence: {dash(item.get('confidence'))}
+
+{research_status_block(data, ru)}
 
 ## Launch Pipeline
 
@@ -381,7 +461,7 @@ def render_status(data: dict[str, Any]) -> str:
 - Рекомендация: {dash(summary.get('recommendation'), ru)}
 - Почему: {dash(summary.get('why'), ru)}
 - Выбранный путь: {dash(path_label, ru)}
-- На чем основано: {dash(summary.get('support'), ru)}
+- На чем основано: {support_display(summary.get('support'), ru)}
 
 ## Готовность
 
@@ -389,7 +469,7 @@ def render_status(data: dict[str, Any]) -> str:
 | --- | --- |
 | Статус | {table_cell(readiness_label(data, ru), ru)} |
 | Готово к тесту | {yes_no(bool(state.get('ready_to_test')), ru)} |
-| Готово к launch handoff | {yes_no(bool(state.get('ready_for_launch')), ru)} |
+| Готово к передаче на запуск | {yes_no(bool(state.get('ready_for_launch')), ru)} |
 | Полнота контекста | {state.get('scores', {}).get('completeness', 0)}/100 |
 | Готовность к рабочей воронке | {state.get('scores', {}).get('qualification', 0)}/100 |
 | Готовность данных | {state.get('scores', {}).get('research_readiness', 0)}/100 |
@@ -481,7 +561,7 @@ def render_segments(data: dict[str, Any]) -> str:
 
 {segments_table(segments, ru)}
 
-## {"Нишевый профиль" if ru else "Niche Profile"}
+## {"Контекст рынка" if ru else "Niche Profile"}
 
 {niche_profile_section(niche_profile, ru)}
 
@@ -494,11 +574,15 @@ def render_segments(data: dict[str, Any]) -> str:
 - {"Доказательств пока нет" if ru else "Explicit no proof yet"}: {yes_no(bool(intake.get('explicit_no_proof_yet')), ru)}
 - {"Что уже подтверждает доверие" if ru else "Proof assets"}:
 
-{bullet_list(intake.get('proof_assets', []), 'нет', ru)}
+{proof_assets_list(intake.get('proof_assets', []), 'нет', ru)}
 
 ### {"Метрики" if ru else "Metrics"}
 
 {metrics_table(intake.get('metrics', []), ru)}
+
+### {"Расчет текущей воронки" if ru else "Baseline Funnel Math"}
+
+{baseline_metrics_table(data, ru)}
 """
 
 
@@ -512,6 +596,8 @@ def render_evidence(data: dict[str, Any]) -> str:
     results = data["agent_results"]
     if ru:
         return f"""# Данные и допущения
+
+{research_status_block(data, ru)}
 
 ## Источники, использованные в решениях
 
@@ -538,6 +624,8 @@ def render_evidence(data: dict[str, Any]) -> str:
 Цены, журналы изменений и утверждения про текущую практику требуют даты получения. Без даты они остаются пробелом данных, а не фактом.
 """
     return f"""# Evidence and Assumptions
+
+{research_status_block(data, ru)}
 
 ## Evidence Used In Decisions
 
@@ -570,6 +658,7 @@ def render_competitors(data: dict[str, Any]) -> str:
     item = insights(data)
     competitors = data["competitors"]
     competitor_synthesis = item.get("competitor_synthesis") if isinstance(item.get("competitor_synthesis"), dict) else {}
+    research_status = item.get("research_status") if isinstance(item.get("research_status"), dict) else {}
     title = "Конкурентные паттерны" if ru else "Competitive Patterns"
     guidance = (
         "Используйте строки конкурентов как наблюдения. Не переносите утверждения в рекомендации без источника и даты получения."
@@ -582,6 +671,12 @@ def render_competitors(data: dict[str, Any]) -> str:
             "\n> **Пока нет карты конкурентов:** отчет не должен выдумывать цены, призывы к действию или доказательства конкурентов. Соберите минимум 3 прямых конкурента перед пометкой отчета как готового.\n"
             if ru
             else "\n> **No competitor map yet:** the report must not invent competitor pricing, CTAs, or proof. Collect at least 3 direct competitors before marking the report ready.\n"
+        )
+    elif int(research_status.get("sourced_competitor_count") or 0) < 3:
+        missing = (
+            "\n> **Конкуренты из брифа не считаются проверенной картой:** для синтеза нужны минимум 3 строки с URL, датой проверки и наблюдаемым первым шагом/ценой/призывом.\n"
+            if ru
+            else "\n> **User-provided competitor archetypes are not a sourced competitor map:** synthesis needs at least 3 rows with URL, retrieval date, and observed onboarding/pricing/CTA.\n"
         )
     return f"""# {title}
 
@@ -621,7 +716,7 @@ def render_blueprint(data: dict[str, Any]) -> str:
 - Путь: {path_label}
 - Основание выбора: {rationale}
 - Главная метрика: {dash(summary.get('target_kpi'), ru)}
-- На чем основано: {dash(summary.get('support'), ru)}
+- На чем основано: {support_display(summary.get('support'), ru)}
 
 ## Маршрут пользователя
 
@@ -716,7 +811,7 @@ def render_tracking(data: dict[str, Any]) -> str:
 
 {channel_events_table(channel_synthesis, ru)}
 
-## {"События профиля" if ru else "Profile Event Suggestions"}
+## {"Рекомендуемые события" if ru else "Profile Event Suggestions"}
 
 {niche_events_table(niche_profile, ru)}
 """
@@ -841,13 +936,55 @@ def rows_table(rows: list[tuple[str, Any]], key_label: str, value_label: str, ru
     return f"| {key_label} | {value_label} |\n| --- | --- |\n{body}"
 
 
+def support_display(value: Any, ru: bool) -> str:
+    text = dash(value, ru)
+    if not ru:
+        return text
+    parts = [part.strip() for part in re.split(r"[,;]\s*", text) if part.strip()]
+    if parts and all(part.startswith("competitor-") for part in parts):
+        return f"проверенные конкуренты ({len(parts)})"
+    if re.fullmatch(r"A\d+", text):
+        return f"допущение {text}"
+    if re.fullmatch(r"claim-\d+", text):
+        return f"утверждение {text}"
+    return text
+
+
+def source_refs_display(ids: list[str], ru: bool) -> str:
+    if not ids:
+        return ""
+    if not ru:
+        return ", ".join(ids)
+    competitor_count = sum(1 for item in ids if item.startswith("competitor-"))
+    other = [item for item in ids if not item.startswith("competitor-")]
+    pieces = []
+    if competitor_count:
+        pieces.append(f"проверенные конкуренты ({competitor_count})")
+    pieces.extend(other)
+    return ", ".join(pieces)
+
+
+def localized_observation_text(value: Any, ru: bool) -> str:
+    text = dash(value, ru)
+    if not ru:
+        return text
+    replacements = {
+        "pricing or price cue observed": "есть сигнал цены или стоимости",
+        "district or map orientation": "ориентир по районам или карте",
+        "new-build listings or project list": "список новостроек или проектов",
+    }
+    for source, target in replacements.items():
+        text = text.replace(source, target)
+    return text
+
+
 def segments_table(rows: list[dict[str, Any]], ru: bool) -> str:
     if not rows:
         empty = "нет" if ru else "-"
         return f"| {'Сегмент' if ru else 'Segment'} | {'Задача' if ru else 'Job'} | {'Сдвиг убеждения' if ru else 'Belief shift'} | {'На чем основано' if ru else 'Support'} |\n| --- | --- | --- | --- |\n| {empty} | {empty} | {empty} | {empty} |"
     headers = ("Сегмент", "Задача", "Боль", "Сдвиг убеждения", "На чем основано", "Насколько уверенно") if ru else ("Segment", "Job", "Pain", "Belief shift", "Support", "Confidence")
     body = "\n".join(
-        f"| {table_cell(row.get('segment'), ru)} | {table_cell(row.get('job'), ru)} | {table_cell(row.get('pain'), ru)} | {table_cell(row.get('belief_shift'), ru)} | {table_cell(row.get('support'), ru)} | {table_cell(confidence_label(str(row.get('confidence')), ru), ru)} |"
+        f"| {table_cell(row.get('segment'), ru)} | {table_cell(row.get('job'), ru)} | {table_cell(row.get('pain'), ru)} | {table_cell(row.get('belief_shift'), ru)} | {table_cell(support_display(row.get('support'), ru), ru)} | {table_cell(confidence_label(str(row.get('confidence')), ru), ru)} |"
         for row in rows
     )
     return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} | {headers[5]} |\n| --- | --- | --- | --- | --- | --- |\n{body}"
@@ -888,7 +1025,7 @@ def current_funnel_support_label(row: dict[str, Any], ru: bool) -> str:
     if claim_ids:
         pieces.append(("утверждения: " if ru else "claims: ") + claim_ids)
     if source_ids:
-        pieces.append(("источники: " if ru else "sources: ") + source_ids)
+        pieces.append(("источники: " if ru else "sources: ") + source_refs_display(list_items(row.get("source_ids")), ru))
     if assumption_ids:
         pieces.append(("допущения: " if ru else "assumptions: ") + assumption_ids)
     if blocked_reason not in {"-", "не указано"}:
@@ -932,7 +1069,7 @@ def screen_table(rows: list[dict[str, Any]], ru: bool) -> str:
     if not rows:
         return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} | {headers[5]} |\n| --- | --- | --- | --- | --- | --- |\n| - | - | - | - | - | - |"
     body = "\n".join(
-        f"| {table_cell(row.get('stage'), ru)} | {table_cell(row.get('target_belief'), ru)} | {table_cell(row.get('content'), ru)} | {table_cell(row.get('cta'), ru)} | {table_cell(row.get('proof_needed'), ru)} | {table_cell(row.get('support'), ru)} |"
+        f"| {table_cell(row.get('stage'), ru)} | {table_cell(row.get('target_belief'), ru)} | {table_cell(row.get('content'), ru)} | {table_cell(row.get('cta'), ru)} | {table_cell(row.get('proof_needed'), ru)} | {table_cell(support_display(row.get('support'), ru), ru)} |"
         for row in rows
     )
     return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} | {headers[5]} |\n| --- | --- | --- | --- | --- | --- |\n{body}"
@@ -971,12 +1108,22 @@ def variant_support_label(row: dict[str, Any], ru: bool) -> str:
     if claim_ids:
         pieces.append(("утверждения: " if ru else "claims: ") + claim_ids)
     if source_ids:
-        pieces.append(("источники: " if ru else "sources: ") + source_ids)
+        pieces.append(("источники: " if ru else "sources: ") + source_refs_display(list_items(row.get("source_ids")), ru))
     if assumption_ids:
         pieces.append(("допущения: " if ru else "assumptions: ") + assumption_ids)
     if blocked_reason not in {"-", "не указано"}:
         pieces.append(("блокер: " if ru else "blocked: ") + blocked_reason)
     return "; ".join(pieces) or ("не указано" if ru else "-")
+
+
+def variant_display_label(value: Any, ru: bool) -> str:
+    text = dash(value, ru)
+    if not ru:
+        return text
+    match = re.search(r"(\d+)$", text)
+    if match:
+        return f"Вариант {match.group(1)}"
+    return text.replace("_", " ")
 
 
 def variant_bundle_table(rows: list[dict[str, Any]], ru: bool) -> str:
@@ -990,7 +1137,7 @@ def variant_bundle_table(rows: list[dict[str, Any]], ru: bool) -> str:
         return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} | {headers[5]} | {headers[6]} | {headers[7]} |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n| - | - | - | - | {empty} | - | - | - |"
     body = "\n".join(
         (
-            f"| {table_cell(row.get('variant_id'), ru)} | {table_cell(row.get('stage') or row.get('funnel_stage'), ru)} | "
+            f"| {table_cell(variant_display_label(row.get('variant_id'), ru), ru)} | {table_cell(row.get('stage') or row.get('funnel_stage'), ru)} | "
             f"{table_cell(variant_type_label(row.get('variant_type'), ru), ru)} | {table_cell(variant_control_text(row, ru), ru)} | "
             f"{table_cell(variant_change_text(row, ru), ru)} | {table_cell(row.get('hypothesis'), ru)} | "
             f"{table_cell(row.get('measurement_event'), ru)} | "
@@ -1086,7 +1233,7 @@ def experiment_table(rows: list[dict[str, Any]], ru: bool) -> str:
     if not rows:
         return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} | {headers[5]} | {headers[6]} |\n| --- | --- | --- | --- | --- | --- | --- |\n| - | - | - | - | - | - | - |"
     body = "\n".join(
-        f"| {table_cell(row.get('name'), ru)} | {table_cell(row.get('hypothesis'), ru)} | {table_cell(row.get('change'), ru)} | {table_cell(row.get('primary_metric'), ru)} | {table_cell(row.get('event_id'), ru)} | {table_cell(row.get('decision_rule'), ru)} | {table_cell(row.get('support'), ru)} |"
+        f"| {table_cell(row.get('name'), ru)} | {table_cell(row.get('hypothesis'), ru)} | {table_cell(row.get('change'), ru)} | {table_cell(row.get('primary_metric'), ru)} | {table_cell(row.get('event_id'), ru)} | {table_cell(row.get('decision_rule'), ru)} | {table_cell(support_display(row.get('support'), ru), ru)} |"
         for row in rows
     )
     return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} | {headers[5]} | {headers[6]} |\n| --- | --- | --- | --- | --- | --- | --- |\n{body}"
@@ -1142,7 +1289,7 @@ def risk_table(rows: list[dict[str, Any]], ru: bool) -> str:
     if not rows:
         return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} |\n| --- | --- | --- | --- |\n| - | - | - | - |"
     body = "\n".join(
-        f"| {table_cell(row.get('risk'), ru)} | {table_cell(row.get('level'), ru)} | {table_cell(row.get('mitigation'), ru)} | {table_cell(row.get('support'), ru)} |"
+        f"| {table_cell(row.get('risk'), ru)} | {table_cell(row.get('level'), ru)} | {table_cell(row.get('mitigation'), ru)} | {table_cell(support_display(row.get('support'), ru), ru)} |"
         for row in rows
     )
     return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} |\n| --- | --- | --- | --- |\n{body}"
@@ -1233,7 +1380,7 @@ def promise_status_label(value: Any, ru: bool) -> str:
 
 
 def promise_proof_table(rows: list[dict[str, Any]], ru: bool) -> str:
-    headers = ("Обещание", "Возражение", "Что доказать", "Формат proof", "Статус", "Запасной вариант") if ru else ("Promise", "Objection", "Proof requirement", "Proof format", "Status", "Fallback")
+    headers = ("Обещание", "Возражение", "Что доказать", "Формат доказательства", "Статус", "Запасной вариант") if ru else ("Promise", "Objection", "Proof requirement", "Proof format", "Status", "Fallback")
     if not rows:
         empty = "нет проверенных обещаний" if ru else "no promise checks"
         return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} | {headers[5]} |\n| --- | --- | --- | --- | --- | --- |\n| {empty} | - | - | - | - | - |"
@@ -1255,14 +1402,20 @@ def proof_mechanic_label(value: Any, ru: bool) -> str:
 
 
 def evidence_refs_table(rows: list[dict[str, Any]], ru: bool) -> str:
-    headers = ("ID", "Название", "Уверенность", "URL") if ru else ("ID", "Title", "Confidence", "URL")
+    headers = ("#", "Название", "Уверенность", "URL") if ru else ("ID", "Title", "Confidence", "URL")
     if not rows:
         empty = "нет источников" if ru else "no sources"
         return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} |\n| --- | --- | --- | --- |\n| - | {empty} | - | - |"
-    body = "\n".join(
-        f"| {table_cell(row.get('id'), ru)} | {table_cell(row.get('title'), ru)} | {table_cell(confidence_label(str(row.get('confidence')), ru), ru)} | {table_cell(row.get('url'), ru)} |"
-        for row in rows
-    )
+    if ru:
+        body = "\n".join(
+            f"| {index} | {table_cell(row.get('title'), ru)} | {table_cell(confidence_label(str(row.get('confidence')), ru), ru)} | {table_cell(row.get('url'), ru)} |"
+            for index, row in enumerate(rows, start=1)
+        )
+    else:
+        body = "\n".join(
+            f"| {table_cell(row.get('id'), ru)} | {table_cell(row.get('title'), ru)} | {table_cell(confidence_label(str(row.get('confidence')), ru), ru)} | {table_cell(row.get('url'), ru)} |"
+            for row in rows
+        )
     return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} |\n| --- | --- | --- | --- |\n{body}"
 
 
@@ -1290,14 +1443,14 @@ def list_items(value: Any) -> list[str]:
 def niche_profile_section(profile: dict[str, Any], ru: bool) -> str:
     status = str(profile.get("status") or "")
     if status != "matched":
-        return "- " + ("Профиль не распознан; используется общий путь." if ru else "No niche profile matched; using the generic path.")
+        return "- " + ("Контекст рынка не распознан; используется общий путь." if ru else "No niche profile matched; using the generic path.")
     rows = [
-        ("Профиль" if ru else "Profile", profile.get("label")),
+        ("Контекст" if ru else "Profile", profile.get("label")),
         ("Словарь" if ru else "Vocabulary", ", ".join(list_items(profile.get("vocabulary")))),
         ("Funnel defaults" if not ru else "Базовый путь", "; ".join(list_items(profile.get("funnel_defaults")))),
-        ("Proof patterns" if not ru else "Форматы proof", "; ".join(list_items(profile.get("proof_patterns")))),
+        ("Proof patterns" if not ru else "Форматы доказательств", "; ".join(list_items(profile.get("proof_patterns")))),
         ("Риски" if ru else "Risks", "; ".join(list_items(profile.get("risks")))),
-        ("Matched terms" if not ru else "Сигналы профиля", ", ".join(list_items(profile.get("matched_terms")))),
+        ("Matched terms" if not ru else "Сигналы контекста", ", ".join(list_items(profile.get("matched_terms")))),
     ]
     summary = dash(profile.get("summary_text"), ru)
     return f"{rows_table(rows, 'Поле' if ru else 'Field', 'Значение' if ru else 'Value', ru)}\n\n> **{summary}**"
@@ -1328,17 +1481,17 @@ def competitor_synthesis_status(value: Any, ru: bool) -> str:
 
 def competitor_synthesis_section(synthesis: dict[str, Any], ru: bool) -> str:
     status = str(synthesis.get("status") or "")
-    source_ids = ", ".join(list_items(synthesis.get("source_ids"))) or ("нет" if ru else "-")
+    source_ids = source_refs_display(list_items(synthesis.get("source_ids")), ru) or ("нет" if ru else "-")
     if status != "observed":
         message = (
             "Повторяемых конкурентных паттернов пока недостаточно; финальный отчет не должен выдумывать цены, призывы к действию, доказательства или первые шаги конкурентов."
             if ru
             else "Repeatable competitor patterns are not strong enough yet; the final report must not invent competitor pricing, CTAs, proof, or onboarding."
         )
-        return f"- {'Статус' if ru else 'Status'}: {competitor_synthesis_status(status, ru)}\n- {'Source IDs' if not ru else 'ID источников'}: {source_ids}\n\n> **{message}**"
+        return f"- {'Статус' if ru else 'Status'}: {competitor_synthesis_status(status, ru)}\n- {'Source IDs' if not ru else 'Источники'}: {source_ids}\n\n> **{message}**"
     return (
         f"- {'Статус' if ru else 'Status'}: {competitor_synthesis_status(status, ru)}\n"
-        f"- {'Source IDs' if not ru else 'ID источников'}: {source_ids}\n\n"
+        f"- {'Source IDs' if not ru else 'Источники'}: {source_ids}\n\n"
         f"{competitor_patterns_table(synthesis.get('patterns'), ru)}\n\n"
         f"### {'Наблюдаемые слабые места' if ru else 'Observed Weaknesses'}\n\n"
         f"{competitor_weaknesses_table(synthesis.get('observations'), ru)}"
@@ -1346,7 +1499,7 @@ def competitor_synthesis_section(synthesis: dict[str, Any], ru: bool) -> str:
 
 
 def competitor_patterns_table(patterns: Any, ru: bool) -> str:
-    headers = ("Паттерн", "Наблюдения", "ID источников", "Сколько строк") if ru else ("Pattern", "Values", "Source IDs", "Rows")
+    headers = ("Паттерн", "Наблюдения", "Источники", "Сколько строк") if ru else ("Pattern", "Values", "Source IDs", "Rows")
     if not isinstance(patterns, dict) or not patterns:
         return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} |\n| --- | --- | --- | --- |\n| - | - | - | - |"
     order = ["positioning", "pricing", "primary_cta", "onboarding_pattern", "proof", "first_value_path", "observed_weaknesses"]
@@ -1355,8 +1508,8 @@ def competitor_patterns_table(patterns: Any, ru: bool) -> str:
         pattern = patterns.get(key)
         if not isinstance(pattern, dict):
             continue
-        values = "; ".join(list_items(pattern.get("values")))
-        source_ids = ", ".join(list_items(pattern.get("source_ids")))
+        values = localized_observation_text("; ".join(list_items(pattern.get("values"))), ru)
+        source_ids = source_refs_display(list_items(pattern.get("source_ids")), ru)
         rows.append(
             f"| {table_cell(pattern.get('label'), ru)} | {table_cell(values, ru)} | {table_cell(source_ids, ru)} | {table_cell(pattern.get('observation_count'), ru)} |"
         )
@@ -1366,14 +1519,14 @@ def competitor_patterns_table(patterns: Any, ru: bool) -> str:
 
 
 def competitor_weaknesses_table(observations: Any, ru: bool) -> str:
-    headers = ("Конкурент", "Слабое место", "ID источников") if ru else ("Competitor", "Weakness", "Source IDs")
+    headers = ("Конкурент", "Слабое место", "Источники") if ru else ("Competitor", "Weakness", "Source IDs")
     rows = []
     if isinstance(observations, dict):
         for observation in observations.get("observed_weaknesses", []):
             if not isinstance(observation, dict):
                 continue
             rows.append(
-                f"| {table_cell(observation.get('competitor'), ru)} | {table_cell(observation.get('value'), ru)} | {table_cell(', '.join(list_items(observation.get('source_ids'))), ru)} |"
+                f"| {table_cell(observation.get('competitor'), ru)} | {table_cell(observation.get('value'), ru)} | {table_cell(source_refs_display(list_items(observation.get('source_ids')), ru), ru)} |"
             )
     if not rows:
         rows.append("| - | - | - |")
@@ -1385,7 +1538,7 @@ def competitor_table(rows: list[dict[str, str]], ru: bool) -> str:
     if not rows:
         return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} | {headers[5]} | {headers[6]} | {headers[7]} |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n| - | - | - | - | - | - | - | - |"
     body = "\n".join(
-        f"| {table_cell(row.get('competitor'), ru)} | {table_cell(row.get('positioning'), ru)} | {table_cell(row.get('pricing'), ru)} | {table_cell(row.get('primary_cta'), ru)} | {table_cell(row.get('onboarding_pattern'), ru)} | {table_cell(row.get('retrieved_at'), ru)} | {table_cell(confidence_label(str(row.get('confidence')), ru), ru)} | {table_cell(row.get('source'), ru)} |"
+        f"| {table_cell(row.get('competitor'), ru)} | {table_cell(row.get('positioning'), ru)} | {table_cell(localized_observation_text(row.get('pricing'), ru), ru)} | {table_cell(row.get('primary_cta'), ru)} | {table_cell(localized_observation_text(row.get('onboarding_pattern'), ru), ru)} | {table_cell(row.get('retrieved_at'), ru)} | {table_cell(confidence_label(str(row.get('confidence')), ru), ru)} | {table_cell(row.get('source'), ru)} |"
         for row in rows
     )
     return f"| {headers[0]} | {headers[1]} | {headers[2]} | {headers[3]} | {headers[4]} | {headers[5]} | {headers[6]} | {headers[7]} |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n" + body
@@ -1465,31 +1618,33 @@ def write_index_html(workspace: Path, data: dict[str, Any], nav: list[tuple[str,
     write_text_file(final_dir(workspace) / "index.html", html)
 
 
-def write_standalone_html(
+def write_single_artifact_html(
     workspace: Path,
     data: dict[str, Any],
     nav: list[tuple[str, str]],
-    page_markdowns: dict[str, str],
+    page_builders: dict[str, Any],
 ) -> None:
     ru = is_russian(data)
-    language = output_language(data)
     lang = "ru" if ru else "en"
-    title = "Единый отчет по воронке" if ru else "Standalone Growth Funnel Report"
-    intro = (
-        "Один HTML-файл со всеми разделами. Он не требует localhost, дополнительных файлов или ссылок на соседние страницы."
-        if ru
-        else "One HTML file with every section. It does not require localhost, extra files, or links to sibling pages."
-    )
+    item = insights(data)
+    summary = item.get("decision_summary", {}) if isinstance(item.get("decision_summary"), dict) else {}
+    title = str(data.get("intake", {}).get("project_name") or ("Growth Funnel Package" if not ru else "Пакет воронки роста"))
     nav_html = "\n".join(
-        f'<a class="nav-link" href="#{escape(slug)}"><span>{number + 1:02d}</span>{escape(page_title)}</a>'
-        for number, (slug, page_title) in enumerate(nav)
+        f'<a class="nav-link" href="#{escape(single_artifact_anchor(slug))}"><span>{number + 1:02d}</span>{escape(section_title)}</a>'
+        for number, (slug, section_title) in enumerate(nav)
     )
-    sections = "\n".join(
-        f'<section id="{escape(slug)}" class="report-section"><div class="section-number">{number + 1:02d}</div>{markdown_to_html(page_markdowns.get(slug, ""))}</section>'
-        for number, (slug, _) in enumerate(nav)
-    )
-    pipeline_title = "Пайплайн запуска" if ru else "Launch Pipeline"
-    pipeline = markdown_to_html(f"## {pipeline_title}\n\n{pipeline_table(data, ru)}")
+    sections = []
+    for slug, section_title in nav:
+        markdown = page_builders[slug](data)
+        body = markdown_to_html(markdown)
+        sections.append(
+            f'<section id="{escape(single_artifact_anchor(slug))}" class="report-section">'
+            f'<div class="section-kicker">{escape(section_title)}</div>'
+            f"{body}"
+            "</section>"
+        )
+    subtitle = dash(summary.get("recommendation"), ru)
+    research = research_status_block(data, ru)
     html = f"""<!doctype html>
 <html lang="{lang}">
 <head>
@@ -1497,76 +1652,86 @@ def write_standalone_html(
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{escape(title)}</title>
   <style>
-    :root {{ color-scheme: light; --ink: #17202a; --muted: #627386; --line: #d9e0e7; --accent: #0f766e; --bg: #f7f9fb; --warn: #b45309; --bad: #b42318; --good: #047857; }}
+    :root {{
+      color-scheme: light;
+      --bg: #f5f7f8;
+      --paper: #ffffff;
+      --ink: #17211f;
+      --muted: #66736f;
+      --line: #dbe2e3;
+      --accent: #0f766e;
+      --accent-soft: #e7f5f1;
+      --warn: #fff7df;
+      --risk: #b42318;
+      --shadow: 0 18px 50px rgba(24, 39, 45, 0.08);
+    }}
     * {{ box-sizing: border-box; }}
     html {{ scroll-behavior: smooth; }}
-    body {{ margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--ink); background: var(--bg); }}
-    .layout {{ display: grid; grid-template-columns: minmax(220px, 300px) minmax(0, 1fr); min-height: 100vh; }}
-    nav {{ border-right: 1px solid var(--line); background: #fff; padding: 24px 18px; position: sticky; top: 0; height: 100vh; overflow: auto; }}
-    .brand {{ font-size: 13px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 16px; }}
-    .nav-link {{ display: flex; gap: 10px; align-items: baseline; padding: 9px 10px; margin: 2px 0; border-radius: 6px; color: var(--ink); text-decoration: none; font-size: 14px; }}
-    .nav-link span {{ color: var(--accent); font-weight: 700; }}
-    .nav-link:hover {{ background: #e7f5f2; color: #0f5f59; }}
-    main {{ max-width: 1120px; padding: 42px 42px 88px; }}
-    .hero {{ margin-bottom: 28px; }}
-    .hero h1 {{ font-size: 40px; line-height: 1.1; margin: 0 0 12px; }}
-    .hero p {{ color: var(--muted); font-size: 18px; line-height: 1.55; max-width: 780px; }}
-    .jump-start {{ display: inline-block; margin-top: 10px; color: #fff; background: var(--accent); padding: 11px 15px; border-radius: 6px; text-decoration: none; }}
-    .report-section {{ position: relative; margin-top: 28px; padding: 30px 0 12px; border-top: 1px solid var(--line); scroll-margin-top: 24px; }}
-    .section-number {{ display: inline-block; margin-bottom: 14px; padding: 4px 8px; border-radius: 999px; background: #e7f5f2; color: #0f5f59; font-size: 12px; font-weight: 700; }}
-    h1 {{ font-size: 34px; line-height: 1.15; margin: 0 0 24px; }}
-    h2 {{ font-size: 22px; margin-top: 32px; padding-top: 12px; border-top: 1px solid var(--line); }}
-    h3 {{ font-size: 17px; margin-top: 24px; }}
-    p, li {{ font-size: 16px; line-height: 1.62; }}
-    blockquote {{ margin: 0 0 24px; padding: 18px 20px; border: 1px solid #b7d8d2; border-left: 5px solid var(--accent); border-radius: 8px; background: #f0fbf8; }}
-    blockquote p {{ margin: 0; font-size: 17px; color: #103f3a; }}
-    code {{ background: #eef2f5; padding: 2px 5px; border-radius: 4px; }}
-    table {{ border-collapse: separate; border-spacing: 0; width: 100%; margin: 16px 0 28px; background: #fff; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }}
-    th, td {{ border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }}
-    th {{ background: #edf3f5; font-size: 13px; text-transform: uppercase; color: #425466; }}
-    td.risk-high, td.risk-высокий {{ color: var(--bad); font-weight: 700; background: #fff1f0; }}
-    td.risk-medium, td.risk-средний {{ color: var(--warn); font-weight: 700; background: #fff8eb; }}
-    td.risk-low, td.risk-низкий {{ color: var(--good); font-weight: 700; background: #ecfdf3; }}
-    td.confidence-high, td.confidence-высокая {{ color: var(--good); font-weight: 700; }}
-    td.confidence-medium, td.confidence-средняя {{ color: var(--warn); font-weight: 700; }}
-    td.confidence-low, td.confidence-низкая {{ color: var(--bad); font-weight: 700; }}
-    .funnel-visual {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 16px 0 28px; }}
-    .funnel-node {{ position: relative; min-height: 150px; border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 16px; }}
-    .funnel-node::after {{ content: "→"; position: absolute; right: -13px; top: 50%; transform: translateY(-50%); color: var(--muted); font-weight: 700; }}
-    .funnel-node:last-child::after {{ content: ""; }}
-    .funnel-node p {{ margin: 10px 0; font-size: 14px; line-height: 1.45; }}
-    .funnel-node small {{ display: block; color: var(--muted); line-height: 1.4; }}
-    .funnel-node.assumption-backed {{ background: #fffbeb; border-color: #f7c948; }}
-    .funnel-node.blocked {{ background: #fff1f0; border-color: #ffb4ad; }}
-    .funnel-badge {{ display: inline-block; margin-bottom: 8px; padding: 3px 7px; border-radius: 999px; background: #eef2f5; color: #425466; font-size: 12px; font-weight: 700; }}
-    .assumption-backed .funnel-badge {{ background: #fef3c7; color: #92400e; }}
-    .blocked .funnel-badge {{ background: #fee2e2; color: #991b1b; }}
-    @media (max-width: 760px) {{ .layout {{ display: block; }} nav {{ position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }} main {{ padding: 28px 20px 56px; }} .hero h1 {{ font-size: 32px; }} }}
+    body {{ margin: 0; background: var(--bg); color: var(--ink); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.55; }}
+    .layout {{ display: grid; grid-template-columns: 292px minmax(0, 1fr); min-height: 100vh; }}
+    nav {{ position: sticky; top: 0; height: 100vh; overflow: auto; padding: 28px 18px; background: #fbfcfc; border-right: 1px solid var(--line); }}
+    .brand {{ margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }}
+    .brand strong {{ display: block; font-size: 16px; }}
+    .brand span {{ display: block; margin-top: 4px; color: var(--muted); font-size: 13px; }}
+    .nav-link {{ display: flex; gap: 10px; align-items: baseline; margin: 3px 0; padding: 9px 10px; color: inherit; text-decoration: none; border-radius: 8px; font-size: 14px; }}
+    .nav-link:hover {{ background: var(--accent-soft); }}
+    .nav-link span {{ min-width: 24px; color: var(--accent); font-weight: 800; font-size: 12px; }}
+    main {{ width: min(1160px, 100%); padding: 38px 42px 84px; }}
+    .hero {{ min-height: 380px; display: grid; align-content: end; gap: 18px; padding: 40px; color: #fff; background: linear-gradient(135deg, #153431, #0f766e 58%, #8a6a2f); border-radius: 8px; box-shadow: var(--shadow); }}
+    .eyebrow {{ width: max-content; max-width: 100%; padding: 6px 10px; background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.24); border-radius: 999px; font-size: 13px; font-weight: 800; }}
+    h1 {{ max-width: 980px; margin: 0; font-size: clamp(36px, 5vw, 68px); line-height: 1; letter-spacing: 0; }}
+    .hero p {{ max-width: 880px; margin: 0; color: #e8f5f2; font-size: 18px; }}
+    .report-section {{ margin-top: 28px; padding: 30px; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); scroll-margin-top: 18px; }}
+    .section-kicker {{ margin-bottom: 12px; color: var(--accent); font-size: 12px; font-weight: 850; text-transform: uppercase; letter-spacing: 0.04em; }}
+    h2 {{ margin: 28px 0 14px; font-size: clamp(24px, 3vw, 36px); line-height: 1.08; letter-spacing: 0; }}
+    h3 {{ margin: 24px 0 10px; font-size: 19px; }}
+    p {{ margin: 0 0 14px; }}
+    blockquote {{ margin: 16px 0 20px; padding: 14px 16px; border-left: 5px solid var(--accent); background: var(--accent-soft); border-radius: 8px; }}
+    table {{ width: 100%; margin: 16px 0 24px; border-collapse: separate; border-spacing: 0; overflow: hidden; background: #fff; border: 1px solid var(--line); border-radius: 8px; }}
+    th, td {{ padding: 10px 11px; border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); text-align: left; vertical-align: top; font-size: 14px; }}
+    th {{ background: #edf4f4; color: #384b48; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }}
+    tr:last-child td {{ border-bottom: 0; }}
+    th:last-child, td:last-child {{ border-right: 0; }}
+    code {{ padding: 2px 5px; background: #eef4f4; border-radius: 5px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.92em; }}
+    ul, ol {{ padding-left: 22px; }}
+    li {{ margin: 6px 0; }}
+    .funnel-visual {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin: 16px 0 22px; }}
+    .funnel-node {{ padding: 14px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }}
+    .funnel-node.assumption-backed {{ background: var(--warn); border-color: #eccb70; }}
+    .funnel-node.blocked {{ border-color: var(--risk); }}
+    .funnel-badge {{ display: inline-block; margin-bottom: 8px; padding: 3px 7px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 11px; font-weight: 800; }}
+    @media (max-width: 860px) {{
+      .layout {{ display: block; }}
+      nav {{ position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }}
+      main {{ padding: 24px 16px 56px; }}
+      .hero, .report-section {{ padding: 22px; }}
+      table {{ display: block; overflow-x: auto; }}
+    }}
   </style>
 </head>
 <body>
   <div class="layout">
-    <nav>
-      <div class="brand">{escape(ui_text(language, "brand"))}</div>
+    <nav aria-label="Report navigation">
+      <div class="brand"><strong>{escape(title)}</strong><span>{'Один self-contained HTML' if ru else 'Single self-contained HTML'}</span></div>
       {nav_html}
     </nav>
     <main>
       <header class="hero">
+        <div class="eyebrow">{'Growth funnel package' if not ru else 'Пакет воронки роста'}</div>
         <h1>{escape(title)}</h1>
-        <p>{escape(intro)}</p>
-        <a class="jump-start" href="#00_index">{escape(ui_text(language, "start"))}</a>
+        <p>{escape(subtitle)}</p>
+        {markdown_to_html(research) if research else ''}
       </header>
-      {pipeline}
-      {sections}
+      {''.join(sections)}
     </main>
   </div>
 </body>
 </html>
 """
-    write_text_file(final_dir(workspace) / "standalone.html", html)
+    write_text_file(final_dir(workspace) / "index.html", html)
 
 
-def render_pages(workspace: Path) -> dict[str, Any]:
+def render_pages(workspace: Path, single_artifact: bool = True) -> dict[str, Any]:
     validate_and_write(workspace)
     data = load_workspace(workspace)
     clean_final_dir(workspace)
@@ -1584,26 +1749,23 @@ def render_pages(workspace: Path) -> dict[str, Any]:
         "09_risks_and_gaps": render_gaps,
         "10_execution_plan": render_execution,
     }
-    page_markdowns: dict[str, str] = {}
-    for slug, title in nav:
-        markdown = page_builders[slug](data)
-        page_markdowns[slug] = markdown
-        write_final_page(workspace, slug, title, markdown, nav, output_language(data))
-    write_index_html(workspace, data, nav)
-    write_standalone_html(workspace, data, nav, page_markdowns)
+    if single_artifact:
+        write_single_artifact_html(workspace, data, nav, page_builders)
+    else:
+        for slug, title in nav:
+            markdown = page_builders[slug](data)
+            write_final_page(workspace, slug, title, markdown, nav, output_language(data))
+        write_index_html(workspace, data, nav)
     summary = validate_and_write(workspace)
     leaks = final_leakage(workspace)
     final_index = final_dir(workspace) / "index.html"
-    final_standalone = final_dir(workspace) / "standalone.html"
     link_label = "Открыть финальный HTML" if is_russian(data) else "Open final HTML"
-    standalone_label = "Открыть единый HTML" if is_russian(data) else "Open standalone HTML"
     summary["rendered"] = True
+    summary["single_artifact"] = single_artifact
     summary["recommendations_ready"] = summary.get("phase") == "ready"
     summary["ready_to_test"] = summary.get("phase") == "ready"
     summary["final_index_path"] = str(final_index)
     summary["final_index_chat_link"] = markdown_file_link(final_index, link_label)
-    summary["final_standalone_path"] = str(final_standalone)
-    summary["final_standalone_chat_link"] = markdown_file_link(final_standalone, standalone_label)
     summary["final_leakage"] = leaks
     return summary
 
@@ -1613,7 +1775,7 @@ def main() -> int:
     workspace = Path(args.workspace_dir).expanduser().resolve()
     try:
         ensure_workspace(workspace)
-        summary = render_pages(workspace)
+        summary = render_pages(workspace, single_artifact=not args.multi_page)
     except (OSError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1

@@ -35,10 +35,10 @@ Use these principles while synthesizing:
 3. Show the user the generated `user_inputs/` folder and the highest-priority file to fill before asking extra questions.
 4. Ingest pasted notes, filled input files, documents, metrics, research, competitor observations, or specialist outputs into `runtime/`.
 5. Validate after every meaningful update.
-6. Run live research for current-sensitive claims when host web, browser, MCP, analytics, CRM, or file tools are available. Use bundled collectors only for best-effort public web and competitor discovery; otherwise use host tools and record normalized source rows. If no live research path exists, the pack may still be ready to test when every recommendation is explicitly assumption-backed and launch blockers stay visible.
+6. Run live research for current-sensitive claims when host web, browser, MCP, analytics, CRM, or file tools are available. Use bundled collectors only for best-effort public web and competitor discovery; otherwise use host tools and record normalized source rows. Competitor archetypes from the brief are not a competitor map: before synthesis, collect or confirm real competitors with URL, retrieval date, and observable first step/pricing/action. If research cannot run or returns no usable rows, the final package must visibly say `research_missing` / "исследование не проведено" and keep recommendations assumption-backed.
 7. Compile `runtime/insights.json` before rendering. Every recommendation must point to evidence or an explicit assumption.
-8. Render `final/` only after validation, even if some recommendations stay blocked.
-9. Finish the chat response with the single-file HTML first when a final exists; otherwise start with the clickable `user_inputs/` folder and `00_next_input.md`. Always include the next smallest useful input. Use `final_standalone_chat_link` from `render_final.py` when available, and include `final_index_chat_link` only as a local navigation fallback when useful. In Claude.ai, ChatGPT, or other hosted artifact surfaces, present or attach `final/standalone.html` as the actual artifact. Do not output manually constructed `claudeusercontent.com` or other CDN URLs, do not require `localhost`, and do not send non-technical users to child page links such as `05_funnel_blueprint.html` unless the files are in the same local directory. If building links manually, use Markdown with absolute local paths: `[Открыть единый HTML](/absolute/path/final/standalone.html)`, `[Открыть локальное оглавление](/absolute/path/final/index.html)`, `[Папка для данных](/absolute/path/user_inputs)`, `[Что заполнить дальше](/absolute/path/user_inputs/00_next_input.md)`. Do not use `file://`, a code block, or an `open ...` command as the primary way to open files.
+8. Render `final/` only after validation, even if some recommendations stay blocked. The default final output is one self-contained `final/index.html` with anchor navigation; do not create separate user-facing HTML pages unless the user explicitly asks for legacy multi-page output.
+9. Finish the chat response with the clickable main HTML link first when a final exists; otherwise start with the clickable `user_inputs/` folder and `00_next_input.md`. Always include the next smallest useful input. Use `final_index_chat_link` from `render_final.py` when available. If building links manually, use Markdown with absolute local paths: `[Открыть финальный HTML](/absolute/path/final/index.html)`, `[Папка для данных](/absolute/path/user_inputs)`, `[Что заполнить дальше](/absolute/path/user_inputs/00_next_input.md)`. Do not use `file://`, `localhost`, generated `claudeusercontent.com` URLs, a code block, or an `open ...` command as the primary way to open files.
 
 Run bundled scripts yourself when filesystem access exists:
 
@@ -57,12 +57,11 @@ python3 scripts/export_launch.py "<workspace-dir>" --json
 The workspace has four areas:
 
 - `runtime/`: machine state, source ledger, task state, gaps, and normalized evidence.
-- `final/`: user-facing Markdown, local multipage HTML, and one self-contained `standalone.html` for hosted artifact surfaces.
+- `final/`: by default one user-facing self-contained `index.html`; legacy Markdown/multi-page HTML is allowed only when explicitly requested.
 - `user_inputs/`: editable Markdown templates for user context collection; safe to show and ask the user to fill.
 - `exports/`: optional machine-readable launch handoff JSON/CSV, generated only when explicitly requested.
 
 Do not put YAML, CSV, JSON, JSONL, traces, or separate CSS files in `final/`.
-Keep legacy `index.html` and per-page HTML files for local/Codex compatibility, but `standalone.html` must contain all report sections, inline CSS, internal `#section` navigation only, and no links to sibling `.html` files.
 Specialist/task traceability belongs in `runtime/orchestration_contract.json`; if exported, the machine-readable handoff belongs in `exports/orchestration_contract.*`, not `final/`.
 Do not mark launch exports ready unless `ready_for_launch == true`, row-level `ready == true`, and row-level `launch_blocked_reason` is empty. Assumption-backed rows may be `ready_to_test`, but must keep `claim_ids`, `source_ids`, `assumption_ids`, `blocked_reason`, and `launch_blocked_reason` visible in exports.
 Copy, action, route, proof-placement, and qualification variants belong in `runtime/insights.json` as `variant_bundles`; if exported, their machine-readable handoff belongs in `exports/variant_bundles.*`, not `final/`.
@@ -83,14 +82,23 @@ Adapt examples to the user's business group and sales motion. A real estate deve
 
 Use the runtime niche profile when it matches SaaS, Real Estate, Education, Marketplace, or Local Services. The profile can shape vocabulary, risks, proof format suggestions, funnel defaults, and event suggestions, but it must not invent market facts, benchmarks, pricing, legal/medical/investment claims, or proof.
 
-Every HTML/Markdown package must include an operational pipeline that answers:
+For real-estate new-build agency funnels, the final must stay operational:
+
+- preserve distinct buyer segments when the brief names them, instead of collapsing them into one generic audience;
+- include exact qualification fields: budget, district or lifestyle, purchase goal, purchase timeline, financing, language, readiness for a call, name, and phone;
+- explain why the service can be free for the buyer without claiming guaranteed discounts, mortgages, appreciation, returns, or legal outcomes;
+- show a first-value moment such as a preliminary district map, 2-3 suitable locations, or 3 new-build types with checks/tradeoffs;
+- include Telegram/WhatsApp messages after lead capture and CRM handoff fields;
+- use current funnel metrics to calculate baseline leads, qualified consultations, viewings, reservations, and cost per qualified consultation when the user provides the numbers.
+
+Every HTML package must include an operational pipeline that answers:
 
 - what to do;
 - why to do it;
 - what the user gets from that step;
 - what data or proof is missing before launch.
 
-`runtime/insights.json` is the synthesis layer. It should contain decision summary, segments, screen recommendations, experiments, risks, evidence refs, assumptions, and confidence. Markdown is the canonical readable report layer; HTML is a visual decision layer with navigation, cards, badges, tables, and risk signals.
+`runtime/insights.json` is the synthesis layer. It should contain decision summary, segments, screen recommendations, experiments, risks, evidence refs, assumptions, competitor synthesis, research status, baseline funnel math, and confidence. The final HTML is the canonical readable report layer.
 
 ## Minimum Gate
 

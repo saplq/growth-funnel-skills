@@ -90,8 +90,11 @@ NICHE_PROFILE_ALIASES = {
         "property",
         "properties",
         "developer",
+        "deweloper",
         "apartment",
         "apartments",
+        "new build",
+        "new-build",
         "relocation",
         "buyer",
         "buyers",
@@ -100,6 +103,12 @@ NICHE_PROFILE_ALIASES = {
         "rental",
         "недвиж",
         "квартир",
+        "новостро",
+        "застройщик",
+        "девелопер",
+        "ипотек",
+        "район",
+        "варшав",
         "покупател",
         "релокац",
     ],
@@ -216,6 +225,7 @@ FINAL_PAGES = [
 ]
 
 FINAL_FORBIDDEN_SUFFIXES = {".json", ".jsonl", ".csv", ".yaml", ".yml", ".css"}
+FINAL_FORBIDDEN_STRINGS = ("localhost", "claudeusercontent.com")
 
 RECOMMENDATION_CONTRACT_FIELDS = [
     "id",
@@ -1341,11 +1351,12 @@ def evidence_gaps(data: dict[str, Any]) -> list[str]:
     ru = is_russian(data)
     sources = data.get("sources", [])
     competitors = data.get("competitors", [])
+    sourced_competitors = sourced_competitor_rows(competitors)
     gaps: list[str] = []
     if not sources:
         gaps.append("нет свежих источников в реестре данных" if ru else "source registry has no current sources")
-    if len(competitors) < READY_MIN_COMPETITORS:
-        gaps.append(f"карта конкурентов содержит меньше {READY_MIN_COMPETITORS} конкурентов" if ru else f"competitor map has fewer than {READY_MIN_COMPETITORS} competitors")
+    if len(sourced_competitors) < READY_MIN_COMPETITORS:
+        gaps.append(f"карта проверенных конкурентов содержит меньше {READY_MIN_COMPETITORS} конкурентов с источником и датой" if ru else f"sourced competitor map has fewer than {READY_MIN_COMPETITORS} competitors")
     for source in sources:
         label = source.get("url") or source.get("title") or "source"
         for field in ["url", "title", "publisher", "source_type", "freshness", "confidence"]:
@@ -1695,6 +1706,7 @@ def artifact_status(data: dict[str, Any]) -> dict[str, str]:
     gate = minimum_gate_satisfied(intake)
     sources = data.get("sources", [])
     competitors = data.get("competitors", [])
+    sourced_competitors = sourced_competitor_rows(competitors)
     results = data.get("agent_results", [])
     research = research_readiness_score(data)
     ev_gaps = evidence_gaps(data)
@@ -1703,7 +1715,7 @@ def artifact_status(data: dict[str, Any]) -> dict[str, str]:
     return {
         "runtime/intake.json": "ready" if not missing_fields(intake) else "partial" if any(present(v) for v in intake.values()) else "empty",
         "runtime/sources.jsonl": "ready" if sources else "empty",
-        "runtime/competitors.csv": "ready" if len(competitors) >= READY_MIN_COMPETITORS else "partial" if competitors else "empty",
+        "runtime/competitors.csv": "ready" if len(sourced_competitors) >= READY_MIN_COMPETITORS else "partial" if competitors else "empty",
         "runtime/agent_results.jsonl": "ready" if results else "empty",
         "runtime/orchestration_contract.json": "ready",
         "runtime/gaps.json": "ready",
@@ -1768,6 +1780,11 @@ def select_funnel_skeleton(data: dict[str, Any]) -> tuple[str, str]:
         str(intake.get(field, ""))
         for field in ["offer", "sales_motion", "primary_channel", "pricing", "product_constraints"]
     ).lower()
+    profile_key, _ = matched_niche_profile_key(intake)
+    if profile_key == "real_estate":
+        if any(token in text for token in ["подбор", "новостро", "застройщик", "developer", "deweloper", "shortlist"]):
+            return "lead_magnet_to_consult", "Real estate new-build demand is assisted: first provide a useful shortlist/district orientation, then qualify and book a consultation."
+        return "demo_led", "High-ticket real estate needs trust-building and an assisted consultation path."
     if "enterprise" in text or "sales" in text or (ttfv is not None and ttfv > 10):
         return "demo_led", "High value or longer setup needs assisted trust-building before activation."
     if any(token in text for token in ["audit", "diagnos", "assessment", "аудит", "диагност"]):
@@ -1809,9 +1826,10 @@ def skeleton_rationale_text(skeleton: str, fallback: str, ru: bool) -> str:
     if not ru:
         return fallback
     values = {
-        "demo_led": "Высокая ценность или длинная настройка требуют доверия и assisted path до активации.",
+        "demo_led": "Высокая ценность или длинная подготовка требуют доверия и консультации с понятным контекстом.",
         "diagnostic_to_roadmap": "Воронка должна дать первую ценность через диагностику и приоритетный план.",
-        "trial_to_value": "Быстрая первая ценность поддерживает product-led путь от триала к результату.",
+        "trial_to_value": "Сначала нужно показать быструю пользу, затем вести к следующему шагу.",
+        "lead_magnet_to_consult": "Для покупки новостройки сначала нужен полезный ориентир по объектам/районам, затем квалификация и консультация.",
     }
     return values.get(skeleton, "Диагностика выбрана по умолчанию, пока время до первой ценности не подтверждено.")
 
@@ -2040,7 +2058,7 @@ def channel_pack_templates(ru: bool) -> dict[str, dict[str, Any]]:
                 "qualification_focus": "Отсечь нецелевые клики через 2-3 вопроса о боли, срочности и соответствии офферу.",
                 "first_value_route": "Показать микро-диагностику или пример результата до просьбы о созвоне.",
                 "conversion_focus": "Передать в следующий шаг только отфильтрованный лид с понятными ожиданиями.",
-                "cta": "Проверить fit за минуту",
+                "cta": "Проверить подбор за минуту",
                 "event_ids": ["MetaCreativeClicked", "MessagePrequalified", "HandoffCompleted", "QualityLeadQualified"],
                 "risk": "Большой объем холодных кликов может ухудшить качество лидов.",
                 "guardrail": "качество лидов, выгорание креативов, потери при передаче",
@@ -2280,14 +2298,14 @@ def niche_profile_templates(ru: bool) -> dict[str, dict[str, Any]]:
                 "summary_text": "Использовать SaaS-словарь: активация, trial, интеграция, workspace и первый полезный результат.",
             },
             "real_estate": {
-                "label": "Real Estate",
+                "label": "Недвижимость",
                 "sales_motion": "assisted_consultation",
                 "vocabulary": ["покупатель", "объект", "шортлист", "бюджет", "юридическая готовность", "консультация"],
-                "risks": ["нельзя обещать доходность или юридический результат без источника и review", "низкое качество лидов из-за бюджета", "недоверие к процессу покупки"],
-                "proof_patterns": ["проверяемый property shortlist sample", "credentials или лицензии", "case narrative без обещания доходности"],
-                "funnel_defaults": ["сначала квалифицировать бюджет и страну", "показать safe shortlist preview", "вести к консультации с подготовленным контекстом"],
-                "event_suggestions": ["BuyerFitCaptured", "BudgetRangeSubmitted", "ShortlistPreviewViewed", "AdvisorConsultationBooked"],
-                "summary_text": "Использовать путь доверия и квалификации покупателя без инвестиционных, юридических или return claims.",
+                "risks": ["нельзя обещать доходность, гарантированную ипотеку или юридический результат без источника и ручной проверки", "низкое качество заявок из-за неподходящего бюджета", "недоверие к бесплатной услуге и процессу сделки"],
+                "proof_patterns": ["пример проверяемой подборки новостроек", "отзывы и публичные профили без обещаний результата", "история сделки без обещания доходности"],
+                "funnel_defaults": ["сначала уточнить бюджет, цель, район/стиль жизни и финансирование", "показать предварительную карту районов или типы новостроек", "вести к консультации с уже собранным контекстом"],
+                "event_suggestions": ["BuyerFitCaptured", "BudgetRangeSubmitted", "DistrictPreviewViewed", "QualifiedConsultationBooked", "FollowUpReminderSent"],
+                "summary_text": "Использовать путь доверия и квалификации покупателя новостройки: объяснить бесплатную услугу, показать первый полезный ориентир и не обещать ипотеку, доходность или юридический результат.",
             },
             "education": {
                 "label": "Education",
@@ -2334,12 +2352,12 @@ def niche_profile_templates(ru: bool) -> dict[str, dict[str, Any]]:
         "real_estate": {
             "label": "Real Estate",
             "sales_motion": "assisted_consultation",
-            "vocabulary": ["buyer", "property", "shortlist", "budget", "legal readiness", "consultation"],
-            "risks": ["return, legal, or payment claims need source-backed proof and review", "lead quality depends on budget fit", "buyers may distrust the purchase process"],
-            "proof_patterns": ["verifiable property shortlist sample", "credentials or licenses", "case narrative without return promises"],
-            "funnel_defaults": ["qualify budget and country first", "show a safe shortlist preview", "route to a consultation with context attached"],
-            "event_suggestions": ["BuyerFitCaptured", "BudgetRangeSubmitted", "ShortlistPreviewViewed", "AdvisorConsultationBooked"],
-            "summary_text": "Use a buyer trust and qualification path without investment, legal, or return claims.",
+            "vocabulary": ["buyer", "new-build apartment", "district", "budget", "financing", "consultation"],
+            "risks": ["return, guaranteed mortgage, legal, or payment claims need source-backed proof and human approval", "lead quality depends on budget fit", "buyers may distrust a free buyer-side service"],
+            "proof_patterns": ["verifiable new-build shortlist sample", "reviews and public profiles without outcome guarantees", "transaction story without return promises"],
+            "funnel_defaults": ["qualify budget, goal, district/lifestyle, and financing first", "show a district map or new-build type preview", "route to a consultation with context attached"],
+            "event_suggestions": ["BuyerFitCaptured", "BudgetRangeSubmitted", "DistrictPreviewViewed", "QualifiedConsultationBooked", "FollowUpReminderSent"],
+            "summary_text": "Use a new-build buyer trust path: explain why the service is free, show a useful first orientation, and avoid mortgage, return, or legal guarantees.",
         },
         "education": {
             "label": "Education",
@@ -2471,6 +2489,222 @@ def primary_channel_pack(channel_synthesis: dict[str, Any] | None) -> dict[str, 
     if isinstance(packs, list) and packs and isinstance(packs[0], dict):
         return packs[0]
     return None
+
+
+def sourced_competitor_rows(competitors: list[dict[str, str]] | Any) -> list[dict[str, str]]:
+    if not isinstance(competitors, list):
+        return []
+    return [
+        row
+        for row in competitors
+        if isinstance(row, dict) and present(row.get("source")) and present(row.get("retrieved_at"))
+    ]
+
+
+def build_research_status(data: dict[str, Any], sourced_competitors: list[dict[str, str]], ru: bool) -> dict[str, Any]:
+    sources = data.get("sources") if isinstance(data.get("sources"), list) else []
+    if len(sources) >= 3 and len(sourced_competitors) >= READY_MIN_COMPETITORS:
+        status = "source_backed"
+        message = "Исследование проведено: есть внешние источники и проверенные конкуренты." if ru else "Research completed: external sources and sourced competitors are present."
+    elif not sources and not sourced_competitors:
+        status = "research_missing"
+        message = "исследование не проведено: нет внешних источников и проверенных конкурентов с URL и датой проверки." if ru else "research missing: no external sources or sourced competitors with URL and retrieval date."
+    else:
+        status = "partial_research"
+        message = "исследование неполное: часть источников или конкурентов отсутствует, поэтому рекомендации остаются проверяемыми допущениями." if ru else "research is partial: missing sources or competitors keep recommendations assumption-backed."
+    return {
+        "status": status,
+        "message": message,
+        "source_count": len(sources),
+        "sourced_competitor_count": len(sourced_competitors),
+        "required_source_count": 3,
+        "required_competitor_count": READY_MIN_COMPETITORS,
+    }
+
+
+def is_real_estate_new_build_context(intake: dict[str, Any], niche_profile: dict[str, Any] | None = None) -> bool:
+    profile_key = str((niche_profile or {}).get("profile_key") or matched_niche_profile_key(intake)[0])
+    text = profile_detection_text(intake)
+    if profile_key != "real_estate":
+        return False
+    return any(
+        token in text
+        for token in [
+            "новостро",
+            "застройщик",
+            "developer",
+            "deweloper",
+            "new build",
+            "warsaw",
+            "варшав",
+            "mieszkan",
+            "apartment",
+        ]
+    )
+
+
+def metric_haystack(row: dict[str, Any]) -> str:
+    return " ".join(str(row.get(field) or "") for field in ["metric_name", "notes", "source"]).lower()
+
+
+def metric_value_for(metrics: list[dict[str, Any]], keyword_groups: list[list[str]]) -> float | None:
+    for group in keyword_groups:
+        for metric in metrics:
+            if not isinstance(metric, dict):
+                continue
+            haystack = metric_haystack(metric)
+            if all(keyword.lower() in haystack for keyword in group):
+                value = numeric_value(metric.get("value"))
+                if value is None:
+                    value = numeric_value(metric.get("notes"))
+                if value is not None:
+                    return value
+    return None
+
+
+def rate_value(value: float | None) -> float | None:
+    if value is None:
+        return None
+    if value > 1:
+        return value / 100
+    return value
+
+
+def format_number(value: float | None, ru: bool, suffix: str = "") -> str:
+    if value is None:
+        return "не указано" if ru else "-"
+    rounded = round(value, 1 if abs(value) < 100 else 0)
+    text = f"{rounded:,.1f}" if isinstance(rounded, float) and not rounded.is_integer() else f"{int(round(value)):,}"
+    text = text.replace(",", " ")
+    return f"{text}{suffix}"
+
+
+def format_currency(value: float | None, ru: bool) -> str:
+    if value is None:
+        return "не указано" if ru else "-"
+    return "€" + format_number(value, ru)
+
+
+def build_baseline_metrics(intake: dict[str, Any], ru: bool) -> dict[str, Any]:
+    metrics = intake.get("metrics") if isinstance(intake.get("metrics"), list) else []
+    visitors = metric_value_for(metrics, [["landing", "visitors"], ["посет", "лендинг"]])
+    lead_rate = rate_value(metric_value_for(metrics, [["lead", "conversion"], ["landing", "conversion"], ["конверс", "лид"]]))
+    reachable_rate = rate_value(metric_value_for(metrics, [["phone", "reachable"], ["дозвон"]]))
+    qualified_rate = rate_value(metric_value_for(metrics, [["qualified", "consultation", "rate"], ["qualified", "leads"], ["квалифиц", "консультац"]]))
+    viewing_rate = rate_value(metric_value_for(metrics, [["viewing", "booked"], ["просмотр"]]))
+    reservation_rate = rate_value(metric_value_for(metrics, [["reservation", "rate"], ["брон"]]))
+    commission = metric_value_for(metrics, [["commission"], ["комисс"]])
+    ad_spend = metric_value_for(metrics, [["ads", "spend"], ["ad", "spend"], ["реклам", "расход"]])
+
+    leads = visitors * lead_rate if visitors is not None and lead_rate is not None else None
+    reachable = leads * reachable_rate if leads is not None and reachable_rate is not None else None
+    qualified = leads * qualified_rate if leads is not None and qualified_rate is not None else None
+    viewings = qualified * viewing_rate if qualified is not None and viewing_rate is not None else None
+    reservations = viewings * reservation_rate if viewings is not None and reservation_rate is not None else None
+    gross_commission = reservations * commission if reservations is not None and commission is not None else None
+    cost_per_lead = ad_spend / leads if ad_spend is not None and leads else None
+    cost_per_qualified = ad_spend / qualified if ad_spend is not None and qualified else None
+
+    rows: list[dict[str, str]] = []
+    if visitors is not None:
+        rows.append({"metric": "Посетители лендинга" if ru else "Landing visitors", "value": format_number(visitors, ru), "note": "в месяц" if ru else "monthly"})
+    if leads is not None:
+        rows.append({"metric": "Лиды с лендинга" if ru else "Landing leads", "value": format_number(leads, ru), "note": f"{format_number((lead_rate or 0) * 100, ru, '%')} conversion"})
+    if reachable is not None:
+        rows.append({"metric": "Дозвон" if ru else "Reachable leads", "value": format_number(reachable, ru), "note": f"{format_number((reachable_rate or 0) * 100, ru, '%')}"})
+    if qualified is not None:
+        rows.append({"metric": "Квалифицированные консультации" if ru else "Qualified consultations", "value": format_number(qualified, ru), "note": f"{format_number((qualified_rate or 0) * 100, ru, '%')} от лидов"})
+    if viewings is not None:
+        rows.append({"metric": "Записанные просмотры" if ru else "Booked viewings", "value": format_number(viewings, ru), "note": f"{format_number((viewing_rate or 0) * 100, ru, '%')} от консультаций"})
+    if reservations is not None:
+        rows.append({"metric": "Оценочные бронирования" if ru else "Estimated reservations", "value": format_number(reservations, ru), "note": f"{format_number((reservation_rate or 0) * 100, ru, '%')} от просмотров"})
+    if gross_commission is not None:
+        rows.append({"metric": "Оценочная комиссия" if ru else "Estimated gross commission", "value": format_currency(gross_commission, ru), "note": "до расходов и отмен" if ru else "before costs/cancellations"})
+    if cost_per_lead is not None:
+        rows.append({"metric": "Расход на лид" if ru else "Cost per lead", "value": format_currency(cost_per_lead, ru), "note": ""})
+    if cost_per_qualified is not None:
+        rows.append({"metric": "Расход на квалифицированную консультацию" if ru else "Cost per qualified consultation", "value": format_currency(cost_per_qualified, ru), "note": ""})
+
+    if not rows:
+        return {"status": "missing", "rows": [], "priority": "нет достаточных метрик для расчета базовой воронки" if ru else "not enough metrics to calculate baseline"}
+
+    if qualified is not None and leads is not None:
+        priority = (
+            f"Главный первый рычаг: поднять качество и дозвон до квалифицированной консультации. Сейчас примерно {format_number(leads, ru)} лидов дают {format_number(qualified, ru)} квалифицированных консультаций."
+            if ru
+            else f"First lever: improve lead quality and reachability into qualified consultations. Roughly {format_number(leads, ru)} leads create {format_number(qualified, ru)} qualified consultations."
+        )
+    else:
+        priority = "Использовать доступные метрики как baseline и не интерпретировать тест без CRM-сверки." if ru else "Use available metrics as the baseline and do not interpret the test without CRM reconciliation."
+    return {"status": "calculated", "rows": rows, "priority": priority}
+
+
+def build_real_estate_segments(intake: dict[str, Any], support: str, confidence: str, ru: bool) -> list[dict[str, str]]:
+    text = profile_detection_text(intake)
+    segments: list[dict[str, str]] = []
+    if ru:
+        if "сем" in text or "перв" in text:
+            segments.append({
+                "segment": "Семьи, покупающие первую квартиру для жизни",
+                "job": "понять, какие районы и сроки сдачи подходят семье и бюджету",
+                "pain": "страх ошибиться с районом, инфраструктурой, сроком сдачи и стартовым взносом",
+                "belief_shift": "мне покажут понятный короткий список, а не будут навязывать один объект",
+                "priority": "primary",
+                "support": support,
+                "confidence": confidence,
+            })
+        if "it" in text or "предприним" in text or "инвест" in text:
+            segments.append({
+                "segment": "IT-специалисты и предприниматели, рассматривающие новостройку как инвестицию",
+                "job": "быстро сравнить районы, ликвидность и сценарий аренды без обещаний доходности",
+                "pain": "хочется понять риски, стартовый капитал и отличия проектов, но нельзя опираться на рекламные обещания",
+                "belief_shift": "я получу сравнение вариантов и ограничений без обещания гарантированного роста цены",
+                "priority": "secondary",
+                "support": support,
+                "confidence": confidence,
+            })
+        if "резидент" in text or "релока" in text or "польш" in text or "ипотек" in text:
+            segments.append({
+                "segment": "Новые резиденты Польши, которым нужен понятный процесс покупки",
+                "job": "разобраться в ипотеке, документах, этапах сделки и безопасном следующем шаге",
+                "pain": "непонятно, сколько денег нужно на старт, как работает застройщик и почему услуга бесплатна",
+                "belief_shift": "процесс сделки прозрачен, а консультация нужна, чтобы проверить мой сценарий",
+                "priority": "secondary",
+                "support": support,
+                "confidence": confidence,
+            })
+    else:
+        if "family" in text or "first" in text:
+            segments.append({
+                "segment": "Families buying a first apartment to live in",
+                "job": "understand which districts and handover timelines fit family needs and budget",
+                "pain": "fear of choosing the wrong district, infrastructure, delivery date, or cash requirement",
+                "belief_shift": "I will see a clear shortlist instead of being pushed into one project",
+                "priority": "primary",
+                "support": support,
+                "confidence": confidence,
+            })
+        if "it" in text or "entrepreneur" in text or "invest" in text:
+            segments.append({
+                "segment": "IT specialists and entrepreneurs evaluating new-builds as an investment",
+                "job": "compare districts, liquidity, and rental scenarios without return guarantees",
+                "pain": "they need risk and cash clarity without relying on promotional claims",
+                "belief_shift": "I can compare options and constraints without a guaranteed-return promise",
+                "priority": "secondary",
+                "support": support,
+                "confidence": confidence,
+            })
+        if "resident" in text or "relocation" in text or "poland" in text or "mortgage" in text:
+            segments.append({
+                "segment": "New Poland residents who need the purchase process explained",
+                "job": "understand mortgage, documents, transaction steps, and a safe next step",
+                "pain": "they do not know required starting cash, developer process, or why the service is free",
+                "belief_shift": "the transaction path is transparent and the consultation checks my scenario",
+                "priority": "secondary",
+                "support": support,
+                "confidence": confidence,
+            })
+    return segments
 
 
 def source_claim_group(source: dict[str, Any]) -> str:
@@ -2811,18 +3045,18 @@ def proof_mechanic_guidance(claim_type: str, sales_motion: str, risk_level: str,
     if ru:
         claim_formats = {
             "performance_outcome": "кейс или метрика результата с источником, датой и контекстом сегмента",
-            "trust_or_safety": "credentials, review summary или критерии проверки с источником",
-            "regulated_or_financial_claim": "подтвержденный источник плюс ручной review; не использовать как обещание результата без проверки",
-            "fit_or_workflow": "пример workflow, demo walkthrough или sample output, который показывает применимость",
+            "trust_or_safety": "публичные отзывы, профиль компании или критерии проверки с источником",
+            "regulated_or_financial_claim": "подтвержденный источник плюс ручная проверка; не использовать как обещание результата без проверки",
+            "fit_or_workflow": "пример процесса или результата, который показывает применимость",
         }
         motion_formats = {
-            "self_serve": "показать доказательство рядом с first-value preview или trial step",
-            "assisted_consultation": "использовать proof в pre-call контексте и передать его владельцу консультации",
-            "webinar_led": "поставить proof в live example/Q&A и post-webinar decision route",
-            "bot_or_messaging": "дать короткий proof snippet в ветке qualification до handoff",
-            "matchmaking": "показать критерии проверки supply и sample shortlist до заявки",
+            "self_serve": "показать доказательство рядом с первым полезным результатом",
+            "assisted_consultation": "использовать доказательство в контексте до звонка и передать его владельцу консультации",
+            "webinar_led": "поставить доказательство в живой пример и ответы на вопросы",
+            "bot_or_messaging": "дать короткий блок доверия в ветке квалификации до передачи менеджеру",
+            "matchmaking": "показать критерии проверки поставщиков и пример короткого списка до заявки",
         }
-        fallback = "если формата нет, смягчить обещание и оставить explicit assumption до появления источника"
+        fallback = "если формата нет, смягчить обещание и явно пометить допущение до появления источника"
         note = "guidance only: это рекомендация по формату доказательства, не источник"
     else:
         claim_formats = {
@@ -2845,7 +3079,7 @@ def proof_mechanic_guidance(claim_type: str, sales_motion: str, risk_level: str,
     placement = motion_formats.get(sales_motion, motion_formats["assisted_consultation"])
     if risk_level == "high":
         recommended_format = (
-            f"{recommended_format}; {'отдельно зафиксировать legal/commercial review' if ru else 'record separate legal/commercial review'}"
+            f"{recommended_format}; {'отдельно зафиксировать юридическую/коммерческую проверку' if ru else 'record separate legal/commercial review'}"
         )
     return {
         "mechanic_id": f"{claim_type}:{sales_motion}:{risk_level}",
@@ -2863,8 +3097,8 @@ def proof_mechanic_guidance(claim_type: str, sales_motion: str, risk_level: str,
 def proof_blocked_reason_for(status: str, ru: bool) -> str:
     values_ru = {
         "weak_proof": "доказательство слабое или не готово для запуска",
-        "no_proof": "обещание результата не подтверждено proof",
-        "risky_unverified": "рискованное обещание требует подтвержденного источника и review",
+        "no_proof": "обещание результата не подтверждено доказательством",
+        "risky_unverified": "рискованное обещание требует подтвержденного источника и ручной проверки",
     }
     values_en = {
         "weak_proof": "proof is weak or not launch-ready",
@@ -2942,7 +3176,7 @@ def build_promise_proof_model(
     proof_requirement = append_sentence(
         proof_requirement,
         (
-            f"Рекомендованный формат proof: {proof_mechanic['recommended_format']}; {proof_mechanic['placement']}."
+            f"Рекомендованный формат доказательства: {proof_mechanic['recommended_format']}; {proof_mechanic['placement']}."
             if ru
             else f"Recommended proof format: {proof_mechanic['recommended_format']}; {proof_mechanic['placement']}."
         ),
@@ -3117,7 +3351,7 @@ def experiment_quality_defaults(
                 "event_loss_threshold": "Разобрать трекинг, если потеря события между frontend/backend/CRM выше 5% или не сходится ручная проверка.",
                 "expected_effect_range": "Не заявлять статистический lift; искать повторяемый качественный сигнал в 5-10 целевых сессиях или последовательный тренд.",
                 "stop_rule": "Остановить, если качественная обратная связь противоречит гипотезе, событие теряется или контрольный риск ухудшается.",
-                "ship_rule": "Расширять только как guarded rollout, если повторяется нужный сигнал и контрольные риски стабильны.",
+                "ship_rule": "Расширять осторожно, если повторяется нужный сигнал и контрольные риски стабильны.",
                 "iterate_rule": "Итерировать формулировку/маршрут, если сигнал есть, но событие или следующий шаг ломается.",
                 "failure_mode": "Главный риск: принять единичные наблюдения за статистический эффект.",
             }
@@ -3584,6 +3818,7 @@ def compile_insights(data: dict[str, Any], phase: str) -> dict[str, Any]:
     intake = data.get("intake", {})
     sources = data.get("sources", [])
     competitors = data.get("competitors", [])
+    sourced_competitors = sourced_competitor_rows(competitors)
     gate = minimum_gate_satisfied(intake)
     skeleton, rationale = select_funnel_skeleton(data)
     path_label = skeleton_label(skeleton, ru)
@@ -3601,7 +3836,9 @@ def compile_insights(data: dict[str, Any], phase: str) -> dict[str, Any]:
     source_ids = select_support_source_ids(sources, evidence_refs, competitors, 3)
     support = source_ids[0] if source_ids else support
     assumption_ids = first_ids(assumptions, "id", 3)
-    competitor_synthesis = build_competitor_synthesis(competitors, sources, source_ids, ru)
+    competitor_synthesis = build_competitor_synthesis(sourced_competitors, sources, source_ids, ru)
+    research_status = build_research_status(data, sourced_competitors, ru)
+    baseline_metrics = build_baseline_metrics(intake, ru)
     evidence_claims = build_evidence_claims(sources, assumptions, source_ids, ru)
     promise_proof_model = build_promise_proof_model(intake, sources, evidence_claims, assumptions, ru, niche_profile, channel_synthesis)
     source_backed_claims = [claim for claim in evidence_claims if list_value(claim.get("source_ids"))]
@@ -3638,25 +3875,27 @@ def compile_insights(data: dict[str, Any], phase: str) -> dict[str, Any]:
         "niche_profile": str(niche_profile.get("profile_key") or ""),
     }
 
-    segments = [
-        {
-            "segment": audience,
-            "job": dash_text(intake.get("jtbd"), ru),
-            "pain": (
-                f"Нужно понять, решает ли «{offer}» их ситуацию без долгого созвона или лишних шагов."
-                if ru
-                else f"They need to understand whether `{offer}` solves their situation without a long call or extra steps."
-            ),
-            "belief_shift": (
-                "Это применимо к моей ситуации и стоит следующего действия."
-                if ru
-                else "This fits my situation and is worth the next action."
-            ),
-            "priority": "primary",
-            "support": support,
-            "confidence": confidence,
-        }
-    ]
+    segments = build_real_estate_segments(intake, support, confidence, ru) if is_real_estate_new_build_context(intake, niche_profile) else []
+    if not segments:
+        segments = [
+            {
+                "segment": audience,
+                "job": dash_text(intake.get("jtbd"), ru),
+                "pain": (
+                    f"Нужно понять, решает ли «{offer}» их ситуацию без долгого созвона или лишних шагов."
+                    if ru
+                    else f"They need to understand whether `{offer}` solves their situation without a long call or extra steps."
+                ),
+                "belief_shift": (
+                    "Это применимо к моей ситуации и стоит следующего действия."
+                    if ru
+                    else "This fits my situation and is worth the next action."
+                ),
+                "priority": "primary",
+                "support": support,
+                "confidence": confidence,
+            }
+        ]
 
     screens = add_recommendation_contract(
         build_screen_insights(intake, skeleton, support, confidence, ru, competitor_synthesis, channel_synthesis, niche_profile),
@@ -3710,6 +3949,8 @@ def compile_insights(data: dict[str, Any], phase: str) -> dict[str, Any]:
         "evidence_claims": evidence_claims,
         "promise_proof_model": promise_proof_model,
         "competitor_synthesis": competitor_synthesis,
+        "research_status": research_status,
+        "baseline_metrics": baseline_metrics,
         "channel_synthesis": channel_synthesis,
         "niche_profile": niche_profile,
         "current_funnel_diff": current_funnel_diff,
@@ -3718,7 +3959,8 @@ def compile_insights(data: dict[str, Any], phase: str) -> dict[str, Any]:
         "benchmark_assumptions": benchmark_assumptions,
         "assumptions": assumptions,
         "confidence": confidence,
-        "competitor_count": len(competitors),
+        "competitor_count": len(sourced_competitors),
+        "competitor_archetype_count": len(competitors) - len(sourced_competitors),
         "updated_at": utc_now(),
     }
 
@@ -3748,19 +3990,20 @@ def build_evidence_refs(sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def build_assumptions(data: dict[str, Any], skeleton: str, ru: bool = False) -> list[dict[str, str]]:
     intake = data.get("intake", {})
     proof_assets = intake.get("proof_assets") if isinstance(intake.get("proof_assets"), list) else []
+    sourced_competitors = sourced_competitor_rows(data.get("competitors", []))
     assumptions: list[dict[str, str]] = []
     if len(data.get("sources", [])) < 3:
         assumptions.append({"id": "A1", "statement": "В слое ресерча меньше 3 свежих источников." if ru else "Research layer has fewer than 3 current sources.", "used_in": "decision_summary"})
-    if len(data.get("competitors", [])) < 3:
-        assumptions.append({"id": "A2", "statement": "Конкурентный паттерн предварительный, пока не записаны 3 конкурента." if ru else "Competitive pattern is provisional until 3 competitors are recorded.", "used_in": "competitive_patterns"})
+    if len(sourced_competitors) < 3:
+        assumptions.append({"id": "A2", "statement": "Конкурентный паттерн предварительный, пока не записаны 3 конкурента с URL и датой проверки." if ru else "Competitive pattern is provisional until 3 sourced competitors are recorded.", "used_in": "competitive_patterns"})
     if not proof_assets or truthy(intake.get("explicit_no_proof_yet")):
         assumptions.append({"id": "A3", "statement": "Доказательства нужно подтвердить до обещаний рядом с основным призывом к действию." if ru else "Proof must be validated before claims are used near the primary CTA.", "used_in": "screen_playbook"})
     elif proof_assets:
-        assumptions.append({"id": "A3", "statement": "Предоставленные proof assets нужно проверить по силе, свежести и соответствию обещанию перед launch handoff." if ru else "Provided proof assets need strength, freshness, and promise-fit validation before launch handoff.", "used_in": "promise_proof"})
+        assumptions.append({"id": "A3", "statement": "Предоставленные доказательства нужно проверить по силе, свежести и соответствию обещанию перед передачей на запуск." if ru else "Provided proof assets need strength, freshness, and promise-fit validation before launch handoff.", "used_in": "promise_proof"})
     if not present(intake.get("time_to_first_value_minutes")):
         assumptions.append({"id": "A4", "statement": (f"Путь «{skeleton_label(skeleton, ru)}» предполагает, что время до первой ценности еще нужно подтвердить." if ru else f"Skeleton `{skeleton}` assumes first value timing still needs validation."), "used_in": "funnel_map"})
     if promise_risk_level(" ".join([str(intake.get("offer") or ""), str(intake.get("target_kpi") or "")])) == "high":
-        assumptions.append({"id": "A5", "statement": "Рискованные утверждения про деньги, юридические последствия или гарантии требуют подтвержденного источника и проверки." if ru else "Risky money, legal, or guarantee claims need source-backed proof and review.", "used_in": "promise_proof"})
+        assumptions.append({"id": "A5", "statement": "Рискованные утверждения про деньги, юридические последствия или гарантии требуют подтвержденного источника и ручной проверки." if ru else "Risky money, legal, or guarantee claims need source-backed proof and review.", "used_in": "promise_proof"})
     if not current_funnel_step_values(intake):
         assumptions.append({"id": "A6", "statement": "Текущая воронка не предоставлена; сравнение текущей и предложенной воронки остается допущением." if ru else "Current funnel was not provided; current vs proposed changes remain an assumption.", "used_in": "current_funnel_diff"})
     if not assumptions:
@@ -4018,8 +4261,8 @@ def build_current_funnel_diff(
             {
                 "id": f"funnel-diff-{len(rows) + 1}",
                 "current_step": current_step,
-                "proposed_stage": "",
-                "proposed_step": "",
+                "proposed_stage": "Не сопоставлено" if ru else "Unmapped",
+                "proposed_step": "Проверить, нужен ли этот шаг как часть сообщения после заявки или CRM-передачи." if ru else "Confirm whether this step belongs in follow-up or CRM handoff.",
                 "change_type": "clarify",
                 "reason": reason,
                 "measurement_event": "CurrentFunnelStepClarified",
@@ -4262,7 +4505,7 @@ def variant_action_text(
         cta = str(row.get("cta") or "").strip()
         if fallback:
             return (
-                f"Поставить proof/no-proof состояние рядом с действием «{cta}»: {fallback}"
+                f"Поставить состояние доказательства рядом с действием «{cta}»: {fallback}"
                 if ru
                 else f"Place the proof/no-proof state next to `{cta}`: {fallback}"
             )
@@ -4457,7 +4700,7 @@ def build_reviewer_approval(data: dict[str, Any], insights: dict[str, Any], ru: 
         if str(row.get("risk_level") or "").strip().lower() != "high":
             continue
         reason = (
-            "Рискованное коммерческое, юридическое или финансовое обещание требует ручного review перед ready."
+            "Рискованное коммерческое, юридическое или финансовое обещание требует ручной проверки перед готовностью к тесту."
             if ru
             else "Risky commercial, legal, or financial promise requires human review before ready."
         )
@@ -4490,7 +4733,7 @@ def build_reviewer_approval(data: dict[str, Any], insights: dict[str, Any], ru: 
         if not blocked and (not assumption_ids or source_ids):
             continue
         reason = (
-            "Рекомендация опирается на допущение или блокер и требует review перед ready."
+            "Рекомендация опирается на допущение или блокер и требует ручной проверки перед готовностью к тесту."
             if ru
             else "Recommendation relies on an assumption or blocker and requires review before ready."
         )
@@ -4765,13 +5008,147 @@ def apply_proof_mechanics_to_screens(
     format_text = str(mechanic.get("recommended_format") or "").strip()
     if not format_text:
         return rows
-    prefix = f"Рекомендованный формат proof: {format_text}" if ru else f"Recommended proof format: {format_text}"
+    prefix = f"Рекомендованный формат доказательства: {format_text}" if ru else f"Recommended proof format: {format_text}"
     for row in rows:
         proof_needed = str(row.get("proof_needed") or "").strip().lower()
         if proof_needed in {"", "none", "нет"}:
             continue
         row["proof_needed"] = append_sentence(row.get("proof_needed"), prefix)
     return rows
+
+
+def build_real_estate_new_build_screens(
+    intake: dict[str, Any],
+    support: str,
+    confidence: str,
+    ru: bool,
+) -> list[dict[str, str]]:
+    target_kpi = dash_text(intake.get("target_kpi"), ru)
+    if ru:
+        return [
+            {
+                "stage": "Лендинг",
+                "target_belief": "Это подбор под мою ситуацию, а не база случайных объектов.",
+                "content": "Первый экран: «Подборка новостроек Варшавы под ваш бюджет за 24 часа». Рядом коротко объяснить бесплатную услугу: покупатель не платит агентству, агентство получает комиссию от застройщика; цену и наличие нужно сверять по актуальному прайсу застройщика. Показать 3 фильтра: бюджет, район/стиль жизни, цель покупки.",
+                "cta": "Получить подборку за 24 часа",
+                "metric": "LandingLeadMagnetClicked",
+                "guardrail": "не обещать скидку, ипотеку, рост цены или доходность",
+                "proof_needed": "47 сделок за 12 месяцев, отзывы и пример анонимизированной подборки рядом с действием",
+                "support": support,
+                "confidence": confidence,
+                "event_id": "LandingLeadMagnetClicked",
+            },
+            {
+                "stage": "Мини-квалификация",
+                "target_belief": "Агентство понимает мой бюджет, район и цель до звонка.",
+                "content": "Форма или бот задает ровно эти вопросы: бюджет; район или стиль жизни; цель покупки: жизнь/аренда/инвестиция; срок покупки; финансирование: собственные средства/ипотека/не знаю; язык общения; готовность к звонку; имя и телефон. После каждого ответа показывать прогресс и не прятать, зачем нужен вопрос.",
+                "cta": "Показать подходящие районы",
+                "metric": "BuyerFitCaptured",
+                "guardrail": "время заполнения, брошенные формы, доля неподходящих бюджетов",
+                "proof_needed": "не требуется; это сбор контекста",
+                "support": support,
+                "confidence": confidence,
+                "event_id": "BuyerFitCaptured",
+            },
+            {
+                "stage": "Первый полезный результат",
+                "target_belief": "Я уже получил пользу до разговора с менеджером.",
+                "content": "Сразу после ответов показать предварительную карту: 2-3 района/локации и 3 типа новостроек под сценарий пользователя. Для каждого типа: кому подходит, что проверить у застройщика, возможный компромисс. Формулировка безопасная: «предварительный ориентир, финальные объекты проверит агент по актуальной базе».",
+                "cta": "Получить 5-7 конкретных объектов",
+                "metric": "DistrictPreviewViewed",
+                "guardrail": "не выдавать предварительный ориентир за финансовую, юридическую или ипотечную рекомендацию",
+                "proof_needed": "пример реальной анонимизированной подборки и время подготовки первых вариантов до 24 часов после консультации",
+                "support": support,
+                "confidence": confidence,
+                "event_id": "DistrictPreviewViewed",
+            },
+            {
+                "stage": "Запись на консультацию",
+                "target_belief": "Звонок нужен, чтобы проверить мой сценарий и не тратить время.",
+                "content": "Перед отправкой телефона показать, что будет на звонке: уточнение бюджета и финансирования, проверка районов, список 5-7 новостроек, объяснение этапов бронирования. В CRM передать бюджет, район, цель, срок, финансирование, язык, источник кампании и согласие на звонок.",
+                "cta": "Согласовать звонок",
+                "metric": target_kpi,
+                "guardrail": "качество лида, дозвон, скорость первого контакта, согласие на обработку контакта",
+                "proof_needed": "короткий блок «как проходит сделка» и объяснение комиссии от застройщика",
+                "support": support,
+                "confidence": confidence,
+                "event_id": "QualifiedConsultationBooked",
+            },
+            {
+                "stage": "Сообщения после заявки в Telegram/WhatsApp",
+                "target_belief": "Мне не продают агрессивно, а помогают продолжить в удобном канале.",
+                "content": "Сообщение после заявки: «Спасибо, вижу бюджет и цель. Подготовим 5-7 вариантов; на звонке проверим район, финансирование и сроки». Если не ответил: «Могу отправить предварительную карту районов и 3 типа новостроек под ваш бюджет. Удобнее продолжить здесь или созвониться?» Если не готов говорить: отправить образовательный блок «как агентство бесплатно для покупателя» и «что проверить у застройщика».",
+                "cta": "Продолжить в мессенджере",
+                "metric": "FollowUpReplyReceived",
+                "guardrail": "не спамить, сохранять согласие на контакт, не терять источник кампании в CRM",
+                "proof_needed": "ссылка на отзывы или профиль Google/Instagram, если источник проверен",
+                "support": support,
+                "confidence": confidence,
+                "event_id": "FollowUpReminderSent",
+            },
+        ]
+    return [
+        {
+            "stage": "Landing page",
+            "target_belief": "This is a guided shortlist for my situation, not a random property database.",
+            "content": "Lead with a new-build shortlist promise, explain the free buyer-side service, and ask for budget, district/lifestyle, and purchase goal.",
+            "cta": "Get my 24-hour shortlist",
+            "metric": "LandingLeadMagnetClicked",
+            "guardrail": "no discount, mortgage, price-growth, or return guarantees",
+            "proof_needed": "transaction count, reviews, and an anonymized shortlist sample near the action",
+            "support": support,
+            "confidence": confidence,
+            "event_id": "LandingLeadMagnetClicked",
+        },
+        {
+            "stage": "Mini qualification",
+            "target_belief": "The agency understands my budget, district, and goal before a call.",
+            "content": "Ask exactly: budget; district or lifestyle; goal; purchase timeline; cash/mortgage/unknown; communication language; call readiness; name and phone.",
+            "cta": "Show matching districts",
+            "metric": "BuyerFitCaptured",
+            "guardrail": "completion time, abandonment, low-budget mismatch",
+            "proof_needed": "none; this is context capture",
+            "support": support,
+            "confidence": confidence,
+            "event_id": "BuyerFitCaptured",
+        },
+        {
+            "stage": "First value",
+            "target_belief": "I received useful orientation before talking to an advisor.",
+            "content": "Show 2-3 district/lifestyle matches and 3 new-build types with fit, checks, and tradeoffs. Mark it as a preliminary orientation.",
+            "cta": "Get 5-7 concrete projects",
+            "metric": "DistrictPreviewViewed",
+            "guardrail": "do not present orientation as financial, legal, or mortgage advice",
+            "proof_needed": "an anonymized shortlist sample and first-options timing proof",
+            "support": support,
+            "confidence": confidence,
+            "event_id": "DistrictPreviewViewed",
+        },
+        {
+            "stage": "Consultation booking",
+            "target_belief": "The call will check my scenario and save time.",
+            "content": "Show what happens on the call and pass budget, district, goal, timeline, financing, language, source, and call consent into CRM.",
+            "cta": "Agree on a call",
+            "metric": target_kpi,
+            "guardrail": "lead quality, reachable rate, first-contact speed, consent",
+            "proof_needed": "process explanation and developer-commission explanation",
+            "support": support,
+            "confidence": confidence,
+            "event_id": "QualifiedConsultationBooked",
+        },
+        {
+            "stage": "Telegram/WhatsApp follow-up",
+            "target_belief": "The follow-up helps me continue without pressure.",
+            "content": "Send a contextual confirmation, a non-response reminder with the district preview, and a cold-lead education message explaining the process and free buyer-side service.",
+            "cta": "Continue in messenger",
+            "metric": "FollowUpReplyReceived",
+            "guardrail": "do not spam; preserve consent and attribution",
+            "proof_needed": "review or public profile link when sourced",
+            "support": support,
+            "confidence": confidence,
+            "event_id": "FollowUpReminderSent",
+        },
+    ]
 
 
 def build_screen_insights(
@@ -4787,6 +5164,8 @@ def build_screen_insights(
     target_kpi = dash_text(intake.get("target_kpi"), ru)
     offer = dash_text(intake.get("offer"), ru)
     audience = dash_text(intake.get("icp") or intake.get("primary_persona"), ru)
+    if is_real_estate_new_build_context(intake, niche_profile):
+        return build_real_estate_new_build_screens(intake, support, confidence, ru)
     if ru:
         rows = [
             {
@@ -4894,6 +5273,45 @@ def competitor_differentiation_focus(competitor_synthesis: dict[str, Any] | None
     return "; ".join(part for part in parts if part)
 
 
+def build_real_estate_experiment_insights(
+    intake: dict[str, Any],
+    support: str,
+    confidence: str,
+    ru: bool,
+) -> list[dict[str, str]]:
+    baseline = build_baseline_metrics(intake, ru)
+    baseline_note = str(baseline.get("priority") or "")
+    target_kpi = dash_text(intake.get("target_kpi"), ru)
+    channel = dash_text(intake.get("primary_channel"), ru)
+    if ru:
+        return [
+            {
+                "name": "Мини-квалификация + карта районов до звонка",
+                "hypothesis": f"Если заменить короткую форму имя/телефон/бюджет на мини-квалификацию и сразу показать предварительную карту районов/типов новостроек, то больше лидов дойдет до «{target_kpi}», потому что человек получает пользу до звонка, а менеджер получает контекст. {baseline_note}",
+                "change": "На лендинге и в Telegram/WhatsApp собрать бюджет, район/стиль жизни, цель, срок, финансирование, язык и готовность к звонку; затем показать предварительный ориентир и только после этого вести к звонку.",
+                "primary_metric": target_kpi,
+                "guardrail": "объем лидов, время заполнения, дозвон, качество бюджета, нагрузка на 2 агентов, отсутствие обещаний ипотеки/доходности",
+                "decision_rule": "Оставить, если растет доля квалифицированных консультаций из лидов, дозвон не падает, агенты подтверждают лучший контекст лида, а ручная проверка CRM не находит потерь событий.",
+                "event_id": "QualifiedConsultationBooked",
+                "support": support,
+                "confidence": confidence,
+            }
+        ]
+    return [
+        {
+            "name": "Mini-qualification plus district map before the call",
+            "hypothesis": f"If the short name/phone/budget form is replaced by mini-qualification and an immediate district/new-build preview, `{target_kpi}` should improve because users receive value before the call and advisors receive context. {baseline_note}",
+            "change": "Capture budget, district/lifestyle, goal, timeline, financing, language, and call readiness; then show a preliminary orientation before booking the call.",
+            "primary_metric": target_kpi,
+            "guardrail": "lead volume, completion time, reachable rate, budget quality, agent workload, no mortgage/return guarantees",
+            "decision_rule": "Keep it if qualified-consultation rate from leads improves, reachable rate does not fall, agents confirm better lead context, and CRM reconciliation shows no event loss.",
+            "event_id": "QualifiedConsultationBooked",
+            "support": support,
+            "confidence": confidence,
+        }
+    ]
+
+
 def build_experiment_insights(
     intake: dict[str, Any],
     skeleton: str,
@@ -4919,6 +5337,8 @@ def build_experiment_insights(
     profile_defaults = list_value(niche_profile.get("funnel_defaults")) if niche_profile_has_match(niche_profile) else []
     profile_risks = list_value(niche_profile.get("risks")) if niche_profile_has_match(niche_profile) else []
     profile_focus = "; ".join(profile_defaults[:2])
+    if is_real_estate_new_build_context(intake, niche_profile):
+        return build_real_estate_experiment_insights(intake, support, confidence, ru)
     channel_event = event_ids[-1] if event_ids else niche_profile_event(niche_profile, 3, "")
     profile_clause = (
         f" Нишевый профиль {profile_label}: {profile_focus}."
@@ -5034,12 +5454,12 @@ def build_risk_insights(
                 "support": support,
             }
         )
-    if len(data.get("competitors", [])) < 3:
+    if len(sourced_competitor_rows(data.get("competitors", []))) < 3:
         risks.append(
             {
                 "risk": "Слабая карта конкурентов" if ru else "Weak competitor map",
                 "level": "средний" if ru else "medium",
-                "mitigation": "Добавить 3 конкурента с призывом к действию, ценой/онбордингом и датой получения." if ru else "Add 3 competitors with CTA, pricing/onboarding, and retrieval dates.",
+                "mitigation": "Добавить 3 конкурента с URL, датой проверки, призывом к действию, ценой/условиями или первыми шагами пользователя." if ru else "Add 3 sourced competitors with URL, retrieval date, CTA, pricing/terms, or onboarding.",
                 "support": support,
             }
         )
@@ -5085,7 +5505,7 @@ def build_risk_insights(
                 "risk": "Multi-channel handoff can lose attribution or follow-up context" if not ru else "Передача между каналами может потерять атрибуцию или контекст следующего контакта",
                 "level": "средний" if ru else "medium",
                 "mitigation": (
-                    f"Держать основной путь отдельно от support loops: {labels}."
+                    f"Держать основной путь отдельно от вспомогательных касаний: {labels}."
                     if ru
                     else f"Keep the primary path separate from support loops: {labels}."
                 ),
@@ -5097,10 +5517,10 @@ def build_risk_insights(
         for risk in list_value(niche_profile.get("risks"))[:2]:
             risks.append(
                 {
-                    "risk": f"Нишевый риск {label}: {risk}" if ru else f"{label} profile risk: {risk}",
+                    "risk": f"Риск для направления «{label}»: {risk}" if ru else f"{label} profile risk: {risk}",
                     "level": "средний" if ru else "medium",
                     "mitigation": (
-                        f"Проверить профильные defaults: {'; '.join(list_value(niche_profile.get('funnel_defaults'))[:2])}."
+                        f"Проверить базовый путь: {'; '.join(list_value(niche_profile.get('funnel_defaults'))[:2])}."
                         if ru
                         else f"Check profile defaults: {'; '.join(list_value(niche_profile.get('funnel_defaults'))[:2])}."
                     ),
@@ -5199,7 +5619,8 @@ def validate_and_write(workspace: Path) -> dict[str, Any]:
             "next_best_input": questions,
             "decision": decision(qualification),
             "source_count": len(data["sources"]),
-            "competitor_count": len(data["competitors"]),
+            "competitor_count": len(sourced_competitor_rows(data["competitors"])),
+            "competitor_archetype_count": len(data["competitors"]) - len(sourced_competitor_rows(data["competitors"])),
             "input_dir": str(input_dir(workspace)),
         }
     )
@@ -5261,7 +5682,8 @@ def validate_and_write(workspace: Path) -> dict[str, Any]:
         "next_best_input": questions,
         "artifact_status": statuses,
         "source_count": len(data["sources"]),
-        "competitor_count": len(data["competitors"]),
+        "competitor_count": len(sourced_competitor_rows(data["competitors"])),
+        "competitor_archetype_count": len(data["competitors"]) - len(sourced_competitor_rows(data["competitors"])),
         "recommendations_ready": ready,
         "ready_to_test": ready,
     }
@@ -5300,7 +5722,7 @@ def auto_collect_tasks(data: dict[str, Any]) -> list[str]:
     tasks = []
     if len(data.get("sources", [])) < 3:
         tasks.append("собрать минимум 3 свежих внешних источника с датой проверки" if ru else "collect at least 3 current external sources with retrieval dates")
-    if len(data.get("competitors", [])) < READY_MIN_COMPETITORS:
+    if len(sourced_competitor_rows(data.get("competitors", []))) < READY_MIN_COMPETITORS:
         tasks.append(f"собрать минимум {READY_MIN_COMPETITORS} конкурента: цена, призыв к действию, первые шаги пользователя, источник и дата проверки" if ru else f"collect at least {READY_MIN_COMPETITORS} competitor rows with pricing, CTA, onboarding, and source")
     if not data.get("agent_results"):
         tasks.append("записать минимум один результат исследования или синтеза, если использовалась отдельная исследовательская работа" if ru else "record at least one research or synthesis result when specialist work is used")
@@ -5333,9 +5755,6 @@ def orchestration_existing_final_refs(workspace: Path) -> list[str]:
     index = fd / "index.html"
     if index.exists() and not index.is_symlink():
         refs.append("final/index.html")
-    standalone = fd / "standalone.html"
-    if standalone.exists() and not standalone.is_symlink():
-        refs.append("final/standalone.html")
     for slug, _ in FINAL_PAGES:
         for suffix in [".md", ".html"]:
             path = fd / f"{slug}{suffix}"
@@ -5535,7 +5954,7 @@ def orchestration_blocked_reason(
     phase = str((summary or {}).get("phase") or state.get("phase") or "")
     if role == "research":
         reasons.extend(list_value(state.get("evidence_gaps"))[:6])
-    elif role == "competitor" and len(data.get("competitors", [])) < READY_MIN_COMPETITORS:
+    elif role == "competitor" and len(sourced_competitor_rows(data.get("competitors", []))) < READY_MIN_COMPETITORS:
         reasons.append(f"needs at least {READY_MIN_COMPETITORS} sourced competitor rows")
     elif role in {"synthesis", "compiler_reviewer"} and phase != "ready":
         missing = list_value(state.get("critical_missing_fields"))
@@ -6334,7 +6753,7 @@ def clean_final_dir(workspace: Path) -> None:
     for path in fd.iterdir():
         if path.is_symlink():
             path.unlink()
-        elif path.is_file() and (path.suffix in FINAL_FORBIDDEN_SUFFIXES or path.name == "style.css"):
+        elif path.is_file():
             path.unlink()
         elif path.is_dir():
             shutil.rmtree(path)
@@ -6553,7 +6972,20 @@ def final_leakage(workspace: Path) -> list[str]:
     fd = final_dir(workspace)
     if not fd.exists():
         return ["final directory is missing"]
+    html_files = sorted(path.name for path in fd.glob("*.html"))
+    if "index.html" not in html_files:
+        leaks.append("missing index.html")
+    if len(html_files) != 1:
+        leaks.append(f"expected exactly one html artifact, found {len(html_files)}")
     for path in fd.iterdir():
         if path.suffix in FINAL_FORBIDDEN_SUFFIXES or path.name == "style.css" or path.is_dir():
             leaks.append(path.name)
+        if path.is_file() and path.suffix in {".html", ".md"}:
+            text = path.read_text(encoding="utf-8", errors="replace")
+            lowered = text.lower()
+            for forbidden in FINAL_FORBIDDEN_STRINGS:
+                if forbidden in lowered:
+                    leaks.append(f"{path.name}: contains {forbidden}")
+            if re.search(r'href=["\'](?!#|https?://|mailto:|tel:)[^"\']+\.html(?:#[^"\']*)?["\']', text, re.IGNORECASE):
+                leaks.append(f"{path.name}: links to a separate html file")
     return leaks
