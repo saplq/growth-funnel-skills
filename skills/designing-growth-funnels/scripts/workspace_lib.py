@@ -1356,7 +1356,7 @@ def evidence_gaps(data: dict[str, Any]) -> list[str]:
     if not sources:
         gaps.append("нет свежих источников в реестре данных" if ru else "source registry has no current sources")
     if len(sourced_competitors) < READY_MIN_COMPETITORS:
-        gaps.append(f"карта проверенных конкурентов содержит меньше {READY_MIN_COMPETITORS} конкурентов с источником и датой" if ru else f"sourced competitor map has fewer than {READY_MIN_COMPETITORS} competitors")
+        gaps.append(f"карта конкурентов содержит меньше {READY_MIN_COMPETITORS} конкурентов" if ru else f"competitor map has fewer than {READY_MIN_COMPETITORS} competitors")
     for source in sources:
         label = source.get("url") or source.get("title") or "source"
         for field in ["url", "title", "publisher", "source_type", "freshness", "confidence"]:
@@ -2304,7 +2304,7 @@ def niche_profile_templates(ru: bool) -> dict[str, dict[str, Any]]:
                 "risks": ["нельзя обещать доходность, гарантированную ипотеку или юридический результат без источника и ручной проверки", "низкое качество заявок из-за неподходящего бюджета", "недоверие к бесплатной услуге и процессу сделки"],
                 "proof_patterns": ["пример проверяемой подборки новостроек", "отзывы и публичные профили без обещаний результата", "история сделки без обещания доходности"],
                 "funnel_defaults": ["сначала уточнить бюджет, цель, район/стиль жизни и финансирование", "показать предварительную карту районов или типы новостроек", "вести к консультации с уже собранным контекстом"],
-                "event_suggestions": ["BuyerFitCaptured", "BudgetRangeSubmitted", "DistrictPreviewViewed", "QualifiedConsultationBooked", "FollowUpReminderSent"],
+                "event_suggestions": ["BuyerFitCaptured", "BudgetRangeSubmitted", "ShortlistPreviewViewed", "QualifiedConsultationBooked", "FollowUpReminderSent"],
                 "summary_text": "Использовать путь доверия и квалификации покупателя новостройки: объяснить бесплатную услугу, показать первый полезный ориентир и не обещать ипотеку, доходность или юридический результат.",
             },
             "education": {
@@ -2356,7 +2356,7 @@ def niche_profile_templates(ru: bool) -> dict[str, dict[str, Any]]:
             "risks": ["return, guaranteed mortgage, legal, or payment claims need source-backed proof and human approval", "lead quality depends on budget fit", "buyers may distrust a free buyer-side service"],
             "proof_patterns": ["verifiable new-build shortlist sample", "reviews and public profiles without outcome guarantees", "transaction story without return promises"],
             "funnel_defaults": ["qualify budget, goal, district/lifestyle, and financing first", "show a district map or new-build type preview", "route to a consultation with context attached"],
-            "event_suggestions": ["BuyerFitCaptured", "BudgetRangeSubmitted", "DistrictPreviewViewed", "QualifiedConsultationBooked", "FollowUpReminderSent"],
+            "event_suggestions": ["BuyerFitCaptured", "BudgetRangeSubmitted", "ShortlistPreviewViewed", "QualifiedConsultationBooked", "FollowUpReminderSent"],
             "summary_text": "Use a new-build buyer trust path: explain why the service is free, show a useful first orientation, and avoid mortgage, return, or legal guarantees.",
         },
         "education": {
@@ -6967,7 +6967,7 @@ def inline_md(text: str) -> str:
     return escaped
 
 
-def final_leakage(workspace: Path) -> list[str]:
+def final_leakage(workspace: Path, require_standalone: bool = True) -> list[str]:
     leaks = []
     fd = final_dir(workspace)
     if not fd.exists():
@@ -6975,8 +6975,8 @@ def final_leakage(workspace: Path) -> list[str]:
     html_files = sorted(path.name for path in fd.glob("*.html"))
     if "index.html" not in html_files:
         leaks.append("missing index.html")
-    if len(html_files) != 1:
-        leaks.append(f"expected exactly one html artifact, found {len(html_files)}")
+    if require_standalone and "standalone.html" not in html_files:
+        leaks.append("missing standalone.html")
     for path in fd.iterdir():
         if path.suffix in FINAL_FORBIDDEN_SUFFIXES or path.name == "style.css" or path.is_dir():
             leaks.append(path.name)
@@ -6986,6 +6986,6 @@ def final_leakage(workspace: Path) -> list[str]:
             for forbidden in FINAL_FORBIDDEN_STRINGS:
                 if forbidden in lowered:
                     leaks.append(f"{path.name}: contains {forbidden}")
-            if re.search(r'href=["\'](?!#|https?://|mailto:|tel:)[^"\']+\.html(?:#[^"\']*)?["\']', text, re.IGNORECASE):
+            if path.name == "standalone.html" and re.search(r'href=["\'](?!#|https?://|mailto:|tel:)[^"\']+\.html(?:#[^"\']*)?["\']', text, re.IGNORECASE):
                 leaks.append(f"{path.name}: links to a separate html file")
     return leaks

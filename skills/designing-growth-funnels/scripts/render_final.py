@@ -341,7 +341,7 @@ def nav_titles(data: dict[str, Any]) -> list[tuple[str, str]]:
 
 def single_artifact_anchor(slug: str) -> str:
     anchors = {
-        "00_index": "start",
+        "00_index": "00_index",
         "01_status_next_steps": "decision-summary",
         "02_intake_brief": "segments",
         "03_research_evidence": "research-evidence",
@@ -1728,7 +1728,7 @@ def write_single_artifact_html(
 </body>
 </html>
 """
-    write_text_file(final_dir(workspace) / "index.html", html)
+    write_text_file(final_dir(workspace) / "standalone.html", html)
 
 
 def render_pages(workspace: Path, single_artifact: bool = True) -> dict[str, Any]:
@@ -1749,23 +1749,27 @@ def render_pages(workspace: Path, single_artifact: bool = True) -> dict[str, Any
         "09_risks_and_gaps": render_gaps,
         "10_execution_plan": render_execution,
     }
+    for slug, title in nav:
+        markdown = page_builders[slug](data)
+        write_final_page(workspace, slug, title, markdown, nav, output_language(data))
+    write_index_html(workspace, data, nav)
     if single_artifact:
         write_single_artifact_html(workspace, data, nav, page_builders)
-    else:
-        for slug, title in nav:
-            markdown = page_builders[slug](data)
-            write_final_page(workspace, slug, title, markdown, nav, output_language(data))
-        write_index_html(workspace, data, nav)
     summary = validate_and_write(workspace)
-    leaks = final_leakage(workspace)
+    leaks = final_leakage(workspace, require_standalone=single_artifact)
     final_index = final_dir(workspace) / "index.html"
+    final_standalone = final_dir(workspace) / "standalone.html"
     link_label = "Открыть финальный HTML" if is_russian(data) else "Open final HTML"
+    standalone_link_label = "Открыть единый HTML" if is_russian(data) else "Open standalone HTML"
     summary["rendered"] = True
     summary["single_artifact"] = single_artifact
     summary["recommendations_ready"] = summary.get("phase") == "ready"
     summary["ready_to_test"] = summary.get("phase") == "ready"
     summary["final_index_path"] = str(final_index)
     summary["final_index_chat_link"] = markdown_file_link(final_index, link_label)
+    if single_artifact:
+        summary["final_standalone_path"] = str(final_standalone)
+        summary["final_standalone_chat_link"] = markdown_file_link(final_standalone, standalone_link_label)
     summary["final_leakage"] = leaks
     return summary
 

@@ -37,8 +37,8 @@ Use these principles while synthesizing:
 5. Validate after every meaningful update.
 6. Run live research for current-sensitive claims when host web, browser, MCP, analytics, CRM, or file tools are available. Use bundled collectors only for best-effort public web and competitor discovery; otherwise use host tools and record normalized source rows. Competitor archetypes from the brief are not a competitor map: before synthesis, collect or confirm real competitors with URL, retrieval date, and observable first step/pricing/action. If research cannot run or returns no usable rows, the final package must visibly say `research_missing` / "исследование не проведено" and keep recommendations assumption-backed.
 7. Compile `runtime/insights.json` before rendering. Every recommendation must point to evidence or an explicit assumption.
-8. Render `final/` only after validation, even if some recommendations stay blocked. The default final output is one self-contained `final/index.html` with anchor navigation; do not create separate user-facing HTML pages unless the user explicitly asks for legacy multi-page output.
-9. Finish the chat response with the clickable main HTML link first when a final exists; otherwise start with the clickable `user_inputs/` folder and `00_next_input.md`. Always include the next smallest useful input. Use `final_index_chat_link` from `render_final.py` when available. If building links manually, use Markdown with absolute local paths: `[Открыть финальный HTML](/absolute/path/final/index.html)`, `[Папка для данных](/absolute/path/user_inputs)`, `[Что заполнить дальше](/absolute/path/user_inputs/00_next_input.md)`. Do not use `file://`, `localhost`, generated `claudeusercontent.com` URLs, a code block, or an `open ...` command as the primary way to open files.
+8. Render `final/` only after validation, even if some recommendations stay blocked. The default final output includes `final/standalone.html`, `final/index.html`, and legacy per-page Markdown/HTML files.
+9. Finish the chat response with the clickable standalone HTML link first when a final exists; otherwise start with the clickable `user_inputs/` folder and `00_next_input.md`. Always include the next smallest useful input. Use `final_standalone_chat_link` from `render_final.py` when available, with `final_index_chat_link` as a local navigation fallback. If building links manually, use Markdown with absolute local paths: `[Открыть единый HTML](/absolute/path/final/standalone.html)`, `[Открыть финальный HTML](/absolute/path/final/index.html)`, `[Папка для данных](/absolute/path/user_inputs)`, `[Что заполнить дальше](/absolute/path/user_inputs/00_next_input.md)`. Do not use `file://`, `localhost`, generated `claudeusercontent.com` URLs, a code block, or an `open ...` command as the primary way to open files.
 
 Run bundled scripts yourself when filesystem access exists:
 
@@ -57,7 +57,7 @@ python3 scripts/export_launch.py "<workspace-dir>" --json
 The workspace has four areas:
 
 - `runtime/`: machine state, source ledger, task state, gaps, and normalized evidence.
-- `final/`: by default one user-facing self-contained `index.html`; legacy Markdown/multi-page HTML is allowed only when explicitly requested.
+- `final/`: user-facing outputs, including portable `standalone.html`, local `index.html`, and legacy Markdown/multi-page HTML.
 - `user_inputs/`: editable Markdown templates for user context collection; safe to show and ask the user to fill.
 - `exports/`: optional machine-readable launch handoff JSON/CSV, generated only when explicitly requested.
 

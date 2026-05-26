@@ -4,11 +4,11 @@ Use this when rendering or reviewing `final/`.
 
 ## Requirements
 
-- Default output is one self-contained `final/index.html` file with inline CSS and anchor navigation.
-- Do not create separate user-facing HTML pages such as `05_funnel_blueprint.html` unless legacy multi-page output was explicitly requested.
-- `final/` must not contain `localhost`, generated `claudeusercontent.com` URLs, separate CSS files, local links to other HTML files, YAML, CSV, JSON, or JSONL.
+- Default output includes a portable self-contained `final/standalone.html`, local `final/index.html`, and legacy per-page Markdown/HTML files.
+- `standalone.html` must use internal anchors only; legacy page HTML may link to sibling HTML pages for local navigation.
+- `final/` must not contain `localhost`, generated `claudeusercontent.com` URLs, separate CSS files, YAML, CSV, JSON, or JSONL.
 - Machine-readable launch handoffs belong in `exports/`, not `final/`.
-- Legacy multi-page mode may emit Markdown plus matching HTML pages, but it is not the default.
+- Markdown plus matching HTML pages are part of the default local final pack.
 - Markdown does not start with YAML frontmatter.
 - HTML is self-contained with inline CSS, semantic structure, anchor navigation, cards/badges/tables, and risk signals.
 - Pages separate ready-to-test recommendations from launch blockers.
@@ -26,7 +26,7 @@ Use this when rendering or reviewing `final/`.
 - Start pages and execution pages must include a plain operational pipeline: what to do, why, what the user gets, and which proof/data is missing.
 - Status/next-step sections must show the `user_inputs/` folder path and `00_next_input.md` so the user knows exactly where to add missing context.
 - Localized output should use the user's business vocabulary. In Russian output, avoid untranslated internal labels such as "CTA", "guardrail", "support", "skeleton", "ICP", and raw snake_case path names unless they appear inside technical event/file identifiers.
-- The agent's final chat message must lead with a clickable Markdown link to the absolute `final/index.html` file. Prefer the `final_index_chat_link` value returned by `render_final.py`.
+- The agent's final chat message must lead with a clickable Markdown link to the absolute `final/standalone.html` file. Prefer the `final_standalone_chat_link` value returned by `render_final.py`, with `final_index_chat_link` as a local navigation fallback.
 
 ## Insight Layer
 
@@ -48,7 +48,7 @@ Every recommendation in `segments`, `screens`, and `experiments` needs a `suppor
 
 ## Default Sections
 
-Render these sections inside the single `index.html` in a user-first order. Use plain anchor IDs such as `#funnel-map`, not legacy page-like IDs. Keep legacy slugs only when the user explicitly requests multi-page output:
+Render these sections inside `standalone.html` in a user-first order and as matching legacy Markdown/HTML pages for local navigation. `standalone.html` must use internal anchors, starting with `#00_index`.
 
 1. Start here and first action.
 2. Decision summary and readiness.
